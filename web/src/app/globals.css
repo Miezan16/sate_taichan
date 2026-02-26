@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* Anda bisa menambahkan kustomisasi di bawahnya */
+body {
+  background-color: #111111;
+  color: #eaeaea;
+}

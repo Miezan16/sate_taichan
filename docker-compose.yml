@@ -1,0 +1,33 @@
+services:
+  # Database PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: sate_taichan-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: rahasia
+      POSTGRES_DB: satetaichan
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Aplikasi Next.js
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sate_taichan-web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      # Menggunakan nama service 'db' bukan localhost karena berada dalam network docker
+      - DATABASE_URL=postgresql://postgres:rahasia@db:5432/satetaichan
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
