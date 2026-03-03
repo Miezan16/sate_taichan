@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ClipboardList, Flame, X, Banknote, CreditCard, LayoutGrid, 
+import {
+  ClipboardList, Flame, X, Banknote, CreditCard, LayoutGrid,
   History, Loader2, Clock, ChevronRight, Wallet, Printer, CheckCircle2,
   Receipt, Download, Package, ChefHat, Search, SlidersHorizontal,
-  Users, Calendar, CalendarDays, LineChart, Activity, TrendingUp
+  Users, Calendar, CalendarDays, LineChart, Activity, TrendingUp, LogOut
 } from "lucide-react";
 
 // --- TYPES ---
@@ -18,7 +19,11 @@ interface OrderItem { id: number; menu: MenuItem; jumlah: number; harga_satuan: 
 interface Order {
   id: number; nama_pelanggan: string; nomor_meja: string; status: StatusPesanan;
   total_harga: number; tanggal: string; kasir_nama?: string; metode_pembayaran?: MetodePembayaran;
+  uang_bayar?: number; kembalian?: number;
   items: OrderItem[];
+}
+interface CabangInfo {
+  id: number; nama_cabang: string; alamat: string; telepon?: string | null; link_maps?: string | null;
 }
 
 const COLUMNS = [
@@ -28,6 +33,7 @@ const COLUMNS = [
 ];
 
 export default function CashierDashboard() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"overview" | "board" | "history" | "stock">("overview");
   const [orders, setOrders] = useState<Order[]>([]);
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
@@ -37,6 +43,15 @@ export default function CashierDashboard() {
   const [loadingOrderId, setLoadingOrderId] = useState<number | null>(null);
   const [cashierName, setCashierName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<MetodePembayaran>("CASH");
+  const [uangDiterima, setUangDiterima] = useState("");
+  const [cabangInfo, setCabangInfo] = useState<CabangInfo | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Kembalian dihitung secara real-time
+  const kembalian = paymentMethod === "CASH" && uangDiterima
+    ? Math.max(0, Number(uangDiterima) - (selectedOrder?.total_harga ?? 0))
+    : 0;
+  const isCashValid = paymentMethod !== "CASH" || Number(uangDiterima) >= (selectedOrder?.total_harga ?? 0);
 
   const fetchOrders = async () => {
     try {
@@ -48,6 +63,29 @@ export default function CashierDashboard() {
       }
     } catch (error) { console.error("Fetch Error:", error); }
   };
+
+  // Ambil nama kasir dari session & data cabang saat pertama load
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (!res.ok) { router.push("/login"); return; }
+        const data = await res.json();
+        setCashierName(data.username);
+      } catch { router.push("/login"); }
+    };
+    const fetchCabang = async () => {
+      try {
+        const res = await fetch("/api/cabang");
+        if (res.ok) {
+          const data = await res.json();
+          setCabangInfo(data);
+        }
+      } catch { /* Cabang info optional */ }
+    };
+    fetchUser();
+    fetchCabang();
+  }, [router]);
 
   useEffect(() => {
     fetchOrders();
@@ -72,7 +110,7 @@ export default function CashierDashboard() {
     let nextStatus: StatusPesanan | null = null;
     if (order.status === "PENDING") nextStatus = "PROCESSING";
     else if (order.status === "PROCESSING") nextStatus = "UNPAID";
-    
+
     if (order.status === "UNPAID") { setSelectedOrder(order); setIsModalOpen(true); return; }
     if (!nextStatus) return;
 
@@ -91,22 +129,43 @@ export default function CashierDashboard() {
   };
 
   const handleFinalSubmit = async () => {
-    if (!cashierName.trim() || !selectedOrder) return alert("Nama kasir wajib diisi!");
+    if (!selectedOrder) return;
+    const uangBayarVal = paymentMethod === "CASH" ? Number(uangDiterima) : selectedOrder.total_harga;
+    const kembalianVal = paymentMethod === "CASH" ? kembalian : 0;
     try {
       const res = await fetch(`/api/transaksi/${selectedOrder.id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "COMPLETED", kasir_nama: cashierName, metode_pembayaran: paymentMethod })
+        body: JSON.stringify({
+          status: "COMPLETED",
+          metode_pembayaran: paymentMethod,
+          uang_bayar: uangBayarVal,
+          kembalian: kembalianVal,
+        })
       });
-      if (res.ok) { 
-        setSelectedOrder(prev => prev ? {...prev, kasir_nama: cashierName, metode_pembayaran: paymentMethod} : null);
-        setShowReceipt(true); 
-        await fetchOrders(); 
+      if (res.ok) {
+        setSelectedOrder(prev => prev ? {
+          ...prev,
+          kasir_nama: cashierName,
+          metode_pembayaran: paymentMethod,
+          uang_bayar: uangBayarVal,
+          kembalian: kembalianVal,
+        } : null);
+        setShowReceipt(true);
+        await fetchOrders();
       }
     } catch (err) { alert("Gagal memproses pembayaran"); }
   };
 
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+    } catch { setIsLoggingOut(false); }
+  };
+
   const closeModal = () => {
-    setIsModalOpen(false); setShowReceipt(false); setCashierName(""); setPaymentMethod("CASH"); setSelectedOrder(null);
+    setIsModalOpen(false); setShowReceipt(false); setPaymentMethod("CASH"); setUangDiterima(""); setSelectedOrder(null);
   };
 
   // --- PRINT EXPORT PDF (LAPORAN TRANSAKSI) ---
@@ -194,7 +253,7 @@ export default function CashierDashboard() {
     if (!printWindow) return alert('Izinkan popup untuk mencetak struk');
 
     const dateStr = new Date(selectedOrder.tanggal).toLocaleString('id-ID');
-    
+
     const itemsHtml = selectedOrder.items.map(item => `
       <div class="item">
         <div class="item-name">${item.menu.nama}</div>
@@ -235,9 +294,9 @@ export default function CashierDashboard() {
         </head>
         <body>
           <div class="center">
-            <h2>SATE TAICHAN PREMIUM</h2>
-            <p>Jl. Kuliner No. 99, Bandung</p>
-            <p>Telp: 0812-3456-7890</p>
+            <h2>${cabangInfo?.nama_cabang ?? 'SATE TAICHAN PREMIUM'}</h2>
+            <p>${cabangInfo?.alamat ?? 'Jl. Kuliner No. 99, Bandung'}</p>
+            ${cabangInfo?.telepon ? `<p>Telp: ${cabangInfo.telepon}</p>` : '<p>Telp: 0812-3456-7890</p>'}
           </div>
           
           <div class="dashed-line"></div>
@@ -262,6 +321,15 @@ export default function CashierDashboard() {
               <span>METODE</span>
               <span>${selectedOrder.metode_pembayaran}</span>
             </div>
+            ${selectedOrder.metode_pembayaran === 'CASH' ? `
+            <div class="flex mt-1">
+              <span>BAYAR</span>
+              <span>Rp ${(selectedOrder.uang_bayar ?? 0).toLocaleString('id-ID')}</span>
+            </div>
+            <div class="flex mt-1 bold">
+              <span>KEMBALI</span>
+              <span>Rp ${(selectedOrder.kembalian ?? 0).toLocaleString('id-ID')}</span>
+            </div>` : ''}
           </div>
           
           <div class="dashed-line"></div>
@@ -288,19 +356,19 @@ export default function CashierDashboard() {
     const isLastStatus = order.status === "UNPAID";
 
     return (
-      <motion.div 
+      <motion.div
         layout layoutId={`order-${order.id}`}
         initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
         className="group relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all duration-300 shadow-xl overflow-hidden"
       >
         <div className={`absolute -top-10 -right-10 w-24 h-24 bg-gradient-to-br ${col.accent} rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity`} />
-        
+
         <div className="flex justify-between items-start mb-4 relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <span className={`text-[10px] font-black px-2 py-0.5 rounded bg-gradient-to-r ${col.accent} text-white shadow-sm`}>#{order.id}</span>
               <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
-                <Clock size={10} /> {new Date(order.tanggal).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}
+                <Clock size={10} /> {new Date(order.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
             <h3 className="font-bold text-sm text-white truncate max-w-[150px]">{order.nama_pelanggan}</h3>
@@ -310,7 +378,7 @@ export default function CashierDashboard() {
             <span className={`text-lg font-black ${col.text}`}>{order.nomor_meja}</span>
           </div>
         </div>
-        
+
         <div className="space-y-2 mb-4 relative z-10">
           {order.items?.slice(0, 3).map((item) => (
             <div key={item.id} className="flex justify-between items-start text-xs">
@@ -324,17 +392,16 @@ export default function CashierDashboard() {
             <div className="text-[10px] text-gray-500 font-medium italic">+ {order.items.length - 3} item lainnya...</div>
           )}
         </div>
-        
+
         <div className="flex items-end justify-between pt-3 border-t border-white/10 relative z-10">
           <div>
             <p className="text-[9px] text-gray-500 font-medium uppercase tracking-wider mb-0.5">Total</p>
             <p className="text-sm font-bold text-white tracking-tight">Rp {order.total_harga.toLocaleString('id-ID')}</p>
           </div>
-          <button 
+          <button
             onClick={() => handleNextStatus(order)} disabled={isLoading}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95 ${
-              isLoading ? "bg-white/5 text-gray-500 cursor-not-allowed" : `bg-gradient-to-r ${col.accent} text-white hover:shadow-xl ${col.shadow}`
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95 ${isLoading ? "bg-white/5 text-gray-500 cursor-not-allowed" : `bg-gradient-to-r ${col.accent} text-white hover:shadow-xl ${col.shadow}`
+              }`}
           >
             {isLoading ? <Loader2 className="animate-spin" size={14} /> : isLastStatus ? <>Bayar <Wallet size={14} /></> : <>Proses <ChevronRight size={14} /></>}
           </button>
@@ -345,25 +412,24 @@ export default function CashierDashboard() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-cyan-500/30 overflow-hidden flex bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900/40 via-[#050505] to-[#050505]">
-      
+
       {/* --- SIDEBAR --- */}
       <aside className="w-20 bg-white/5 backdrop-blur-xl border-r border-white/10 flex flex-col items-center py-6 z-40 shadow-2xl">
         <div className="mb-8 p-3 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl shadow-lg shadow-red-500/20">
           <ChefHat className="text-white" size={24} />
         </div>
-        
-        <nav className="flex flex-col gap-4 w-full px-3">
+
+        <nav className="flex flex-col gap-4 w-full px-3 flex-1">
           {[
             { id: "overview", icon: LineChart, label: "Stats" },
             { id: "board", icon: LayoutGrid, label: "Board" },
             { id: "stock", icon: Package, label: "Stok" },
             { id: "history", icon: History, label: "Riwayat" }
           ].map((menu) => (
-            <button 
-              key={menu.id} onClick={() => setActiveTab(menu.id as any)} 
-              className={`group relative w-full aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 ${
-                activeTab === menu.id ? "bg-white/10 text-white shadow-lg border border-white/10" : "text-gray-500 hover:text-white hover:bg-white/5"
-              }`}
+            <button
+              key={menu.id} onClick={() => setActiveTab(menu.id as any)}
+              className={`group relative w-full aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 ${activeTab === menu.id ? "bg-white/10 text-white shadow-lg border border-white/10" : "text-gray-500 hover:text-white hover:bg-white/5"
+                }`}
             >
               <menu.icon size={20} className={`transition-transform ${activeTab === menu.id ? 'scale-110 text-cyan-400' : 'group-hover:scale-110'}`} />
               <span className="text-[9px] font-bold tracking-wide">{menu.label}</span>
@@ -373,6 +439,25 @@ export default function CashierDashboard() {
             </button>
           ))}
         </nav>
+
+        {/* Kasir info + Logout */}
+        <div className="w-full px-3 mt-auto">
+          <div className="flex flex-col items-center gap-1 mb-4">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-xs">
+              {cashierName ? cashierName[0].toUpperCase() : "?"}
+            </div>
+            <span className="text-[9px] text-gray-500 font-medium text-center truncate w-full text-center">{cashierName || "..."}</span>
+          </div>
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            title="Logout"
+            className="w-full aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300"
+          >
+            {isLoggingOut ? <Loader2 size={20} className="animate-spin" /> : <LogOut size={20} />}
+            <span className="text-[9px] font-bold tracking-wide">Keluar</span>
+          </button>
+        </div>
       </aside>
 
       {/* --- MAIN CONTENT --- */}
@@ -394,7 +479,7 @@ export default function CashierDashboard() {
               Sistem Kasir Aktif
             </p>
           </div>
-          
+
           <div className="flex gap-4 items-center">
             {/* Indikator Pendapatan Hari Ini */}
             <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 px-5 py-2.5 rounded-2xl flex items-center gap-3">
@@ -413,12 +498,12 @@ export default function CashierDashboard() {
         </header>
 
         <div className="flex-1 p-8 overflow-hidden z-10">
-          
+
           {/* --- VIEW: OVERVIEW / DASHBOARD --- */}
           {activeTab === "overview" && (
             <div className="h-full overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10">
               <h2 className="text-2xl font-bold text-white mb-6">Overview Restoran</h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {/* Card 1: Pelanggan Hari Ini */}
                 <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] relative overflow-hidden group hover:bg-white/10 transition-colors">
@@ -573,22 +658,72 @@ export default function CashierDashboard() {
                     </div>
                   </div>
                   <div className="lg:w-1/2 p-8 flex flex-col justify-center">
-                    <div className="space-y-6">
+                    <div className="space-y-5">
                       <div>
                         <label className="text-xs font-bold text-gray-400 uppercase mb-3 block">Metode Pembayaran</label>
                         <div className="grid grid-cols-2 gap-3">
                           {(['CASH', 'EWALLET'] as const).map((method) => (
-                            <button key={method} onClick={() => setPaymentMethod(method)} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${paymentMethod === method ? 'border-cyan-500 bg-cyan-500/10 text-white' : 'border-white/10 bg-white/5 text-gray-400'}`}>
+                            <button key={method} onClick={() => { setPaymentMethod(method); setUangDiterima(""); }} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${paymentMethod === method ? 'border-cyan-500 bg-cyan-500/10 text-white' : 'border-white/10 bg-white/5 text-gray-400'}`}>
                               {method === 'CASH' ? <Banknote size={24} /> : <CreditCard size={24} />}<span className="font-bold text-xs">{method === 'CASH' ? 'Tunai' : 'E-Wallet'}</span>
                             </button>
                           ))}
                         </div>
                       </div>
+
+                      {/* Input Uang Diterima — hanya tampil untuk CASH */}
+                      {paymentMethod === 'CASH' && (
+                        <div>
+                          <label className="text-xs font-bold text-gray-400 uppercase mb-3 block">Uang Diterima</label>
+                          <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">Rp</span>
+                            <input
+                              type="number"
+                              min={0}
+                              value={uangDiterima}
+                              onChange={(e) => setUangDiterima(e.target.value)}
+                              placeholder="0"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-4 text-white font-bold text-sm outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                          </div>
+                          {/* Kembalian real-time */}
+                          <div className={`mt-3 flex justify-between items-center px-4 py-3 rounded-xl border transition-all ${uangDiterima && !isCashValid
+                              ? 'bg-red-500/10 border-red-500/30'
+                              : uangDiterima
+                                ? 'bg-emerald-500/10 border-emerald-500/30'
+                                : 'bg-white/5 border-white/10'
+                            }`}>
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Kembalian</span>
+                            <span className={`text-lg font-black ${uangDiterima && !isCashValid ? 'text-red-400' : uangDiterima ? 'text-emerald-400' : 'text-gray-600'
+                              }`}>
+                              {uangDiterima && !isCashValid
+                                ? '— Kurang'
+                                : `Rp ${kembalian.toLocaleString('id-ID')}`
+                              }
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
                       <div>
-                        <label className="text-xs font-bold text-gray-400 uppercase mb-3 block">Nama Kasir</label>
-                        <input value={cashierName} onChange={(e) => setCashierName(e.target.value)} placeholder="Masukkan nama Anda..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white focus:border-cyan-500 outline-none transition-all" />
+                        <label className="text-xs font-bold text-gray-400 uppercase mb-3 block">Kasir</label>
+                        <div className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-white flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-xs shrink-0">
+                            {cashierName ? cashierName[0].toUpperCase() : "?"}
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm">{cashierName || "Memuat..."}</p>
+                            <p className="text-[10px] text-gray-500">Session aktif</p>
+                          </div>
+                        </div>
                       </div>
-                      <button onClick={handleFinalSubmit} disabled={!cashierName.trim()} className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-4 rounded-xl font-bold uppercase disabled:opacity-50 mt-4">
+                      <button
+                        onClick={handleFinalSubmit}
+                        disabled={!isCashValid}
+                        className={`w-full py-4 rounded-xl font-bold uppercase transition-all ${isCashValid
+                            ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg hover:shadow-cyan-500/20'
+                            : 'bg-white/5 text-gray-600 cursor-not-allowed'
+                          }`}
+                      >
                         Selesaikan Pembayaran
                       </button>
                     </div>
@@ -598,7 +733,32 @@ export default function CashierDashboard() {
                 <div className="p-8 text-center">
                   <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle2 size={32} /></div>
                   <h2 className="text-xl font-bold text-white mb-2">Pembayaran Berhasil!</h2>
-                  <p className="text-gray-400 text-sm mb-8">Pesanan #{selectedOrder.id} atas nama {selectedOrder.nama_pelanggan} telah selesai.</p>
+                  <p className="text-gray-400 text-sm mb-6">Pesanan #{selectedOrder.id} atas nama {selectedOrder.nama_pelanggan} telah selesai.</p>
+
+                  {/* Rincian Pembayaran */}
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 text-left space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Total Tagihan</span>
+                      <span className="font-bold text-white">Rp {selectedOrder.total_harga.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Metode</span>
+                      <span className="font-bold text-white">{selectedOrder.metode_pembayaran}</span>
+                    </div>
+                    {selectedOrder.metode_pembayaran === 'CASH' && (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">Uang Diterima</span>
+                          <span className="font-bold text-white">Rp {(selectedOrder.uang_bayar ?? 0).toLocaleString('id-ID')}</span>
+                        </div>
+                        <div className="flex justify-between text-sm pt-1 border-t border-white/10">
+                          <span className="text-gray-400">Kembalian</span>
+                          <span className="font-black text-emerald-400 text-base">Rp {(selectedOrder.kembalian ?? 0).toLocaleString('id-ID')}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
                   <div className="flex gap-3">
                     <button onClick={handlePrintReceipt} className="flex-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 py-3 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-cyan-500/30"><Printer size={18} /> Cetak Struk</button>
                     <button onClick={closeModal} className="flex-1 bg-white/10 text-white py-3 rounded-xl font-bold hover:bg-white/20">Selesai</button>

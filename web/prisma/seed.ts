@@ -1,12 +1,49 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
   console.log("🍢 Resetting database dan mengisi 20 menu terpilih...");
-  
+
   await prisma.transaksiItem.deleteMany();
   await prisma.transaksi.deleteMany();
   await prisma.menu.deleteMany();
+
+  // ==========================================
+  // SEED CABANG (info restoran untuk struk)
+  // ==========================================
+  console.log("🏪 Membuat data cabang...");
+  await prisma.cabang.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      nama_cabang: 'Sate Taichan Premium',
+      alamat: 'Jl. Kuliner No. 99, Bandung',
+      telepon: '0812-3456-7890',
+      link_maps: null,
+    },
+  });
+  console.log("  ✅ Data cabang siap");
+
+  // ==========================================
+  // SEED USERS (admin & kasir)
+  // ==========================================
+  console.log("👤 Membuat user default...");
+
+  const users = [
+    { username: 'admin', password: 'admin123', role: 'admin' as const },
+    { username: 'kasir1', password: 'kasir123', role: 'kasir' as const },
+  ];
+
+  for (const u of users) {
+    const password_hash = bcrypt.hashSync(u.password, 10);
+    await prisma.user.upsert({
+      where: { username: u.username },
+      update: { password_hash, role: u.role },
+      create: { username: u.username, password_hash, role: u.role },
+    });
+    console.log(`  ✅ User '${u.username}' (${u.role}) siap`);
+  }
 
   const menu20 = [
     // --- SATE (8 Menu) ---
@@ -15,7 +52,7 @@ async function main() {
     { nama: "Sate Taichan Campur", harga: 28000, kategori: "Sate", protein: "Ayam", image: "https://images.unsplash.com/photo-1544025162-d76694265947", favorit: true, deskripsi: "5 Daging + 5 Kulit." },
     { nama: "Sate Taichan Sapi", harga: 45000, kategori: "Sate", protein: "Sapi", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143", deskripsi: "Daging sapi meltique empuk." },
     { nama: "Sate Mozzarella", harga: 35000, kategori: "Sate", protein: "Ayam", image: "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba", favorit: true, deskripsi: "Sate ayam topping keju lumer." },
-    
+
     // --- KARBO (4 Menu) ---
     { nama: "Lontong", harga: 5000, kategori: "Karbo", protein: "Karbo", image: "https://images.unsplash.com/photo-1626074353765-517a681e40be", favorit: true, deskripsi: "Lontong daun pisang." },
     { nama: "Nasi Daun Jeruk", harga: 10000, kategori: "Karbo", protein: "Karbo", image: "https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6", favorit: true, deskripsi: "Nasi aromatik wangi jeruk." },

@@ -16,7 +16,7 @@ services:
   # Aplikasi Next.js
   web:
     build:
-      context: .
+      context: ./web
       dockerfile: Dockerfile
     container_name: sate_taichan-web
     restart: always
@@ -25,7 +25,7 @@ services:
     environment:
       # Menggunakan nama service 'db' bukan localhost karena berada dalam network docker
       - DATABASE_URL=postgresql://postgres:rahasia@db:5432/satetaichan
-      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       - db
 
