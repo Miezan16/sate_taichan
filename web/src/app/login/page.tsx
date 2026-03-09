@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2, Lock, User, ChefHat, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Loader2, Lock, User, Eye, EyeOff, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -70,9 +70,16 @@ export default function LoginPage() {
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ delay: 0.15, duration: 0.4 }}
-                            className="p-4 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl shadow-xl shadow-red-500/30 mb-5"
+                            className="relative w-20 h-20 flex items-center justify-center mb-5"
                         >
-                            <ChefHat className="text-white" size={36} />
+                            {/* Efek Glow untuk Logo */}
+                            <div className="absolute inset-0 bg-red-600/20 rounded-full blur-[20px]"></div>
+                            {/* Gambar Logo Sate Sadjodo */}
+                            <img 
+                                src="/logo-sadjodo.png" 
+                                alt="Logo Sate Sadjodo" 
+                                className="relative w-full h-full object-contain drop-shadow-2xl" 
+                            />
                         </motion.div>
                         <motion.h1
                             initial={{ opacity: 0, y: 10 }}
@@ -80,7 +87,7 @@ export default function LoginPage() {
                             transition={{ delay: 0.2 }}
                             className="text-2xl font-black text-white tracking-tight"
                         >
-                            KITCHEN<span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">FLOW</span>
+                            SATE <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600">SADJODO</span>
                         </motion.h1>
                         <motion.p
                             initial={{ opacity: 0 }}
@@ -88,7 +95,7 @@ export default function LoginPage() {
                             transition={{ delay: 0.25 }}
                             className="text-gray-500 text-sm mt-1 font-medium"
                         >
-                            Sate Taichan Premium · POS System
+                            Sistem Kasir Sate Sadjodo · POS
                         </motion.p>
                     </div>
 
@@ -106,7 +113,7 @@ export default function LoginPage() {
                                 Username
                             </label>
                             <div className="relative">
-                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-orange-400 transition-colors">
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-red-400 transition-colors">
                                     <User size={17} />
                                 </div>
                                 <input
@@ -116,7 +123,7 @@ export default function LoginPage() {
                                     placeholder="Masukkan username..."
                                     autoComplete="username"
                                     required
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-orange-500/60 focus:bg-white/8 transition-all"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-red-500/60 focus:bg-white/8 transition-all"
                                 />
                             </div>
                         </div>
@@ -127,7 +134,7 @@ export default function LoginPage() {
                                 Password
                             </label>
                             <div className="relative">
-                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-orange-400 transition-colors">
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-red-400 transition-colors">
                                     <Lock size={17} />
                                 </div>
                                 <input
@@ -137,7 +144,7 @@ export default function LoginPage() {
                                     placeholder="Masukkan password..."
                                     autoComplete="current-password"
                                     required
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-12 py-3.5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-orange-500/60 focus:bg-white/8 transition-all"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-12 py-3.5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-red-500/60 focus:bg-white/8 transition-all"
                                 />
                                 <button
                                     type="button"
@@ -165,7 +172,7 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={isLoading || !username || !password}
-                            className="w-full mt-2 bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold py-4 rounded-xl text-sm uppercase tracking-wider shadow-lg shadow-red-500/20 hover:shadow-red-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+                            className="w-full mt-2 bg-gradient-to-r from-red-500 to-red-700 text-white font-bold py-4 rounded-xl text-sm uppercase tracking-wider shadow-lg shadow-red-500/20 hover:shadow-red-500/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
                         >
                             {isLoading ? (
                                 <>

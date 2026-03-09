@@ -8,12 +8,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const {
-      status,
-      metode_pembayaran,
-      uang_bayar,
-      kembalian
-    } = body;
+    const { status, metode_pembayaran, uang_bayar, kembalian } = body;
 
     // ✅ SECURITY: Ambil nama kasir dari session JWT, bukan dari body client
     let kasir_nama: string | undefined;

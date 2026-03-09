@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// ✅ GET - Ambil semua transaksi (untuk dashboard kasir)
+// ✅ GET - Ambil semua transaksi (untuk polling status pelanggan)
 export async function GET() {
   try {
     const transaksi = await prisma.transaksi.findMany({

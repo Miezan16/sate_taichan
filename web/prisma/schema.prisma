@@ -20,10 +20,10 @@ enum Role {
 }
 
 enum StatusPesanan {
-  PENDING // Kolom 1: Pesanan Masuk (Baru)
-  PROCESSING // Kolom 2: Sedang Dipanggang (Proses)
-  UNPAID // Kolom 3: Selesai Dipanggang / Menunggu Pembayaran
-  COMPLETED // Masuk ke Riwayat Transaksi
+  PENDING 
+  PROCESSING 
+  UNPAID 
+  COMPLETED 
 }
 
 enum MetodePembayaran {
@@ -40,11 +40,10 @@ model User {
   username      String        @unique
   password_hash String
   role          Role          @default(kasir)
-  cabang_id     Int? // Branch assignment (opsional)
+  cabang_id     Int? 
   transaksi     Transaksi[]
   activityLogs  ActivityLog[]
 
-  // Relasi ke Cabang (opsional)
   cabang Cabang? @relation(fields: [cabang_id], references: [id])
 }
 
@@ -57,13 +56,13 @@ model Menu {
   protein             String    @default("Ayam")
   harga               Int
   stok                Int       @default(100)
-  low_stock_threshold Int       @default(10) // Ambang batas stok rendah
+  low_stock_threshold Int       @default(10) 
   level_pedas_min     Int       @default(0)
   level_pedas_max     Int       @default(5)
   kalori              Int       @default(0)
   favorit             Boolean   @default(false)
   tersedia            Boolean   @default(true)
-  deleted_at          DateTime? // Soft delete: NULL = aktif
+  deleted_at          DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -74,6 +73,7 @@ model Transaksi {
   id                Int               @id @default(autoincrement())
   kasir_id          Int?
   kasir_nama        String?
+  cabang_id         Int?              // <-- DITAMBAHKAN: Relasi ke cabang
   nama_pelanggan    String
   nomor_meja        String
   status            StatusPesanan     @default(PENDING)
@@ -84,8 +84,9 @@ model Transaksi {
   tanggal           DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
-  kasir User?           @relation(fields: [kasir_id], references: [id])
-  items TransaksiItem[]
+  kasir  User?   @relation(fields: [kasir_id], references: [id])
+  cabang Cabang? @relation(fields: [cabang_id], references: [id]) // <-- DITAMBAHKAN
+  items  TransaksiItem[]
 }
 
 model TransaksiItem {
@@ -105,21 +106,18 @@ model Cabang {
   alamat      String
   link_maps   String?
   telepon     String?
-  users       User[] // Relasi balik ke User
+  users       User[] 
+  transaksi   Transaksi[] // <-- DITAMBAHKAN: Relasi balik dari Transaksi
 }
-
-// ==========================================
-// 3. ACTIVITY LOG
-// ==========================================
 
 model ActivityLog {
   id         Int      @id @default(autoincrement())
-  user_id    Int? // Siapa yang melakukan aksi
-  action     String // "UPDATE_PRICE" | "UPDATE_STOCK" | "CREATE_MENU" | "DELETE_MENU"
-  entity     String // "Menu" | "User"
-  entity_id  Int // ID record yang diubah
-  old_value  String? // JSON string nilai lama
-  new_value  String? // JSON string nilai baru
+  user_id    Int?
+  action     String 
+  entity     String 
+  entity_id  Int 
+  old_value  String?
+  new_value  String? 
   created_at DateTime @default(now())
 
   user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)

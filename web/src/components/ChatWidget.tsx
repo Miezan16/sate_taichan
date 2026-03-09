@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Sparkles, MessageSquare, Info, Bot, Zap } from "lucide-react";
 
-// Definisi tipe data
+// --- DEFINISI TIPE DATA ---
 interface Menu {
   nama: string;
   harga: string;
@@ -20,6 +20,37 @@ interface Message {
 }
 
 const SUGGESTIONS = ["Menu Terlaris?", "Jam Buka?", "Lokasi?", "Promo?"];
+
+// --- DATABASE LOKAL UNTUK MENGUBAH KODE AI MENJADI FOTO MENU ---
+const MENU_CATALOG: Record<string, Menu> = {
+  "SATE-01": { nama: "Taichan Original", harga: "25.000", image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500", deskripsi: "Dada ayam full daging, tinggi protein." },
+  "SATE-02": { nama: "Taichan Kulit Crispy", harga: "22.000", image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500", deskripsi: "Gurih, lumer, dan crispy di mulut." },
+  "SATE-03": { nama: "Taichan Campur", harga: "28.000", image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500", deskripsi: "Kombinasi mantap 5 dada & 5 kulit." },
+  "SATE-04": { nama: "Wagyu Meltique", harga: "45.000", image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500", deskripsi: "Potongan wagyu super empuk." },
+  "SATE-05": { nama: "Taichan Mozzarella", harga: "35.000", image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500", deskripsi: "Dibalut keju mozzarella lumer." },
+  "SATE-06": { nama: "Taichan Seafood", harga: "40.000", image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500", deskripsi: "Sate cumi dan udang bakar segar." },
+  "PLATTER": { nama: "Sadjodo Mix Platter", harga: "75.000", image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500", deskripsi: "25 tusuk sate campur, puas buat barengan!" },
+  
+  "KRB-01": { nama: "Nasi Daun Jeruk", harga: "8.000", image: "https://images.unsplash.com/photo-1536304929831-ee1ca9d44906?w=500", deskripsi: "Nasi pulen wangi daun jeruk khas Sadjodo." },
+  "KRB-02": { nama: "Lontong Daun Pisang", harga: "5.000", image: "https://images.unsplash.com/photo-1626082895617-2c6afed31d33?w=500", deskripsi: "Lontong daun pisang tradisional." },
+  "KRB-03": { nama: "Indomie Kuah Pedas", harga: "18.000", image: "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=500", deskripsi: "Comfort food nikmat saat hujan." },
+  
+  "CML-01": { nama: "Jamur Enoki Crispy", harga: "15.000", image: "https://images.unsplash.com/photo-1563379926898-05f4575a45d8?w=500", deskripsi: "Garing dan gurih cocok buat ngemil." },
+  "CML-02": { nama: "Dimsum Bakar Mentai", harga: "18.000", image: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=500", deskripsi: "Dimsum ayam lembut dengan saus mentai." },
+  
+  "MNM-01": { nama: "Es Jeruk Peras", harga: "15.000", image: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500", deskripsi: "Perasan jeruk murni kaya vitamin C." },
+  "MNM-02": { nama: "Es Yakult Leci", harga: "18.000", image: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500", deskripsi: "Segar, manis, dan asam jadi satu." },
+  "MNM-03": { nama: "Es Teh Manis Jumbo", harga: "10.000", image: "https://images.unsplash.com/photo-1556881286-fc6915169721?w=500", deskripsi: "Pereda pedas andalan pelanggan." },
+};
+
+// --- FUNGSI PARSER TEKS MARKDOWN AGAR RAPI ---
+const formatBotText = (text: string) => {
+  // Mengubah **teks** menjadi <strong>teks</strong> dengan warna mencolok
+  let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong class="text-cyan-300 font-bold">$1</strong>');
+  // Mengubah *teks* menjadi miring
+  formatted = formatted.replace(/\*(.*?)\*/g, '<em class="text-cyan-100/80 italic">$1</em>');
+  return { __html: formatted };
+};
 
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -56,13 +87,19 @@ export default function ChatWidget() {
       });
       const data = await response.json();
 
+      // Menerjemahkan KODE Menu dari AI menjadi Objek Menu berfoto
+      const rawMenuCodes = data.menus || [];
+      const mappedMenus = rawMenuCodes
+        .map((code: string) => MENU_CATALOG[code])
+        .filter(Boolean); // Membuang yang tidak match
+
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now(),
           text: data.jawaban,
           sender: "bot",
-          menus: data.menus || [],
+          menus: mappedMenus, // Sekarang berisi array obyek yang ada fotonya
           catatan: data.catatan !== "-" ? data.catatan : undefined,
         },
       ]);
@@ -89,7 +126,6 @@ export default function ChatWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.95 }}
             transition={{ duration: 0.3, type: "spring", stiffness: 200 }}
-            // Tinggi dikurangi (h-[520px]) agar tidak terlalu atas
             className="fixed bottom-24 right-6 lg:right-8 w-[90vw] md:w-[400px] h-[520px] max-h-[80vh] bg-[#020617]/90 backdrop-blur-3xl border border-cyan-500/30 rounded-[2rem] shadow-[0_20px_60px_rgba(6,182,212,0.2)] z-[100] flex flex-col overflow-hidden font-sans"
           >
             {/* --- BACKGROUND GLOW EFFECTS --- */}
@@ -141,29 +177,25 @@ export default function ChatWidget() {
                       animate={{ opacity: 1, x: 0 }}
                       className="max-w-[85%] bg-gradient-to-br from-cyan-500 to-blue-600 text-white px-5 py-3.5 rounded-[1.5rem] rounded-br-sm text-[13px] shadow-[0_8px_25px_rgba(6,182,212,0.3)] border border-cyan-300/30 relative overflow-hidden"
                     >
-                      {/* Glass Shimmer Overlay */}
                       <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
                       <span className="relative z-10 font-medium leading-relaxed">{msg.text}</span>
                     </motion.div>
                   ) : (
                     /* Bot Space */
                     <div className="max-w-[90%] w-full flex flex-col gap-2">
-                      {/* Bot Label */}
                       <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-widest pl-2 flex items-center gap-1.5">
                         <Bot size={12} /> Sadjodo AI
                       </span>
 
-                      {/* Bot Text Bubble (Dark Glass) */}
+                      {/* Bot Text Bubble - KINI RAPI DENGAN WHITESPACE PRE-WRAP & MARKDOWN */}
                       <motion.div 
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="text-[13px] text-cyan-50 leading-relaxed bg-[#0f172a]/90 backdrop-blur-md border border-cyan-500/20 px-5 py-3.5 rounded-[1.5rem] rounded-tl-sm self-start shadow-[0_8px_30px_rgba(0,0,0,0.3)] relative overflow-hidden"
-                      >
-                         <div className="absolute -top-10 -right-10 w-24 h-24 bg-cyan-600/10 rounded-full blur-[20px] pointer-events-none" />
-                        <span className="relative z-10">{msg.text}</span>
-                      </motion.div>
+                        className="text-[13px] text-cyan-50 leading-relaxed bg-[#0f172a]/90 backdrop-blur-md border border-cyan-500/20 px-5 py-3.5 rounded-[1.5rem] rounded-tl-sm self-start shadow-[0_8px_30px_rgba(0,0,0,0.3)] relative overflow-hidden whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={formatBotText(msg.text)}
+                      />
 
-                      {/* Bot Menu Cards (Modern Hover Effect) */}
+                      {/* Bot Menu Cards (Sekarang Memunculkan Gambar Secara Otomatis!) */}
                       {msg.menus && msg.menus.length > 0 && (
                         <div className="flex gap-3 overflow-x-auto no-scrollbar py-2 w-full snap-x mask-linear-fade">
                           {msg.menus.map((m, i) => (
@@ -198,7 +230,7 @@ export default function ChatWidget() {
                         </div>
                       )}
 
-                      {/* Bot Note/Catatan (Pill Style) */}
+                      {/* Bot Note/Catatan */}
                       {msg.catatan && (
                         <motion.div 
                           initial={{ opacity: 0, scale: 0.9 }}
@@ -232,7 +264,6 @@ export default function ChatWidget() {
 
             {/* --- INPUT AREA --- */}
             <div className="p-4 bg-[#020617] border-t border-cyan-500/10 shrink-0 relative z-10">
-              {/* Quick Suggestions */}
               <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar mask-linear-fade pr-4">
                 {SUGGESTIONS.map((s, i) => (
                   <motion.button
@@ -247,7 +278,6 @@ export default function ChatWidget() {
                 ))}
               </div>
               
-              {/* Input Field */}
               <div className="flex items-center gap-2 bg-[#0a0f1e] border border-cyan-500/20 focus-within:border-cyan-400/60 focus-within:ring-1 focus-within:ring-cyan-500/30 rounded-2xl p-1.5 transition-all shadow-inner group">
                 <input
                   value={input}
@@ -271,7 +301,6 @@ export default function ChatWidget() {
         )}
       </AnimatePresence>
 
-      {/* --- FLOATING BUTTON (KAPSUL KANAN BAWAH) --- */}
       {!isOpen && (
         <motion.button
           initial={{ scale: 0 }}
@@ -281,12 +310,10 @@ export default function ChatWidget() {
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 lg:bottom-8 lg:right-8 flex items-center gap-3.5 bg-[#020617]/90 backdrop-blur-xl border border-cyan-500/40 pl-2.5 pr-6 py-2.5 rounded-full shadow-[0_15px_40px_rgba(6,182,212,0.3)] z-[100] group overflow-hidden"
         >
-          {/* Efek Kilauan Kaca di Tombol Kapsul */}
           <div className="absolute top-0 left-0 w-16 h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
           
           <div className="relative w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.5)] border border-cyan-300/40">
             <MessageSquare size={20} className="text-white fill-white group-hover:scale-110 transition-transform" />
-            {/* Indikator Online Hijau di Ikon */}
             <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-[#020617] rounded-full animate-pulse shadow-[0_0_10px_#34d399]" />
           </div>
           
