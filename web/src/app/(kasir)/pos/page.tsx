@@ -33,6 +33,7 @@ import {
   ChevronDown,
   AlertTriangle,
   RefreshCw,
+  Utensils,
 } from "lucide-react";
 
 // --- TYPES ---
@@ -143,7 +144,6 @@ export default function CashierDashboard() {
   const [isLoadingStock, setIsLoadingStock] = useState(true);
   const [stockSearchQuery, setStockSearchQuery] = useState("");
   const [stockCategoryFilter, setStockCategoryFilter] = useState("All");
-
   const stockCategories = ["All", "Sate", "Karbo", "Camilan", "Minuman"];
 
   // Kembalian dihitung secara real-time
@@ -168,7 +168,7 @@ export default function CashierDashboard() {
     }
   };
 
-  // --- FETCH STOCK DATA ---
+  // --- FETCH STOCK DATA (MENU) ---
   const fetchStock = async () => {
     try {
       const res = await fetch("/api/menu", { cache: "no-store" });
@@ -249,9 +249,16 @@ export default function CashierDashboard() {
     fetchStock();
   }, [router]);
 
+  // --- AUTO REFRESH ORDERS & STOCK EVERY 5 SECONDS ---
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(fetchOrders, 5000);
+    fetchStock(); // Refresh stock/menu data to sync with admin deletions
+    
+    const interval = setInterval(() => {
+      fetchOrders();
+      fetchStock(); // Auto refresh stock/menu every 5 seconds
+    }, 5000);
+    
     return () => clearInterval(interval);
   }, []);
 
@@ -286,17 +293,20 @@ export default function CashierDashboard() {
     let nextStatus: StatusPesanan | null = null;
     if (order.status === "PENDING") nextStatus = "PROCESSING";
     else if (order.status === "PROCESSING") nextStatus = "UNPAID";
+
     if (order.status === "UNPAID") {
       setSelectedOrder(order);
       setIsModalOpen(true);
       return;
     }
+
     if (!nextStatus) return;
 
     setOrders((prev) =>
       prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o))
     );
     setLoadingOrderId(order.id);
+
     try {
       const res = await fetch(`/api/transaksi/${order.id}`, {
         method: "PATCH",
@@ -319,6 +329,7 @@ export default function CashierDashboard() {
     const uangBayarVal =
       paymentMethod === "CASH" ? Number(uangDiterima) : selectedOrder.total_harga;
     const kembalianVal = paymentMethod === "CASH" ? kembalian : 0;
+
     try {
       const res = await fetch(`/api/transaksi/${selectedOrder.id}`, {
         method: "PATCH",
@@ -375,7 +386,6 @@ export default function CashierDashboard() {
   const handlePrintHistory = () => {
     const printWindow = window.open("", "_blank", "width=1000,height=700");
     if (!printWindow) return alert("Izinkan popup untuk mencetak PDF");
-
     const grandTotal = historyOrders.reduce((sum, o) => sum + o.total_harga, 0);
     const dateStr = new Date().toLocaleDateString("id-ID", {
       weekday: "long",
@@ -387,29 +397,29 @@ export default function CashierDashboard() {
     const rowsHtml = historyOrders
       .map(
         (h) => `
-      <tr>
-        <td class="center">#${h.id}</td>
-        <td>${new Date(h.tanggal).toLocaleString("id-ID")}</td>
-        <td>${h.nama_pelanggan}</td>
-        <td class="center">${h.nomor_meja}</td>
-        <td>${h.kasir_nama || "-"}</td>
-        <td class="center">${h.metode_pembayaran}</td>
-        <td class="right">Rp ${h.total_harga.toLocaleString("id-ID")}</td>
-      </tr>
-    `
+         <tr>
+           <td class="center">#${h.id}</td>
+           <td>${new Date(h.tanggal).toLocaleString("id-ID")}</td>
+           <td>${h.nama_pelanggan}</td>
+           <td class="center">${h.nomor_meja}</td>
+           <td>${h.kasir_nama || "-"}</td>
+           <td class="center">${h.metode_pembayaran}</td>
+           <td class="right">Rp ${h.total_harga.toLocaleString("id-ID")}</td>
+         </tr>
+      `
       )
       .join("");
 
     const htmlContent = `
-      <html>
-        <head>
-          <title>Laporan Transaksi - ${dateStr}</title>
-          <style>
+       <html>
+         <head>
+           <title>Laporan Transaksi - ${dateStr}</title>
+           <style>
             body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #333; }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
             .header h1 { margin: 0 0 5px 0; font-size: 24px; text-transform: uppercase; }
             .header p { margin: 0; color: #666; font-size: 14px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; }
+             table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; }
             th, td { border: 1px solid #ddd; padding: 12px; }
             th { background-color: #f8f9fa; font-weight: bold; text-transform: uppercase; font-size: 12px; }
             .center { text-align: center; }
@@ -418,41 +428,41 @@ export default function CashierDashboard() {
             .total-row { background-color: #f8f9fa; }
             .total-row td { font-size: 16px; font-weight: bold; border-top: 2px solid #333; }
             .footer { text-align: center; font-size: 12px; color: #888; margin-top: 50px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Laporan Riwayat Transaksi</h1>
-            <p>Sate Sadjodo | Tanggal Cetak: ${dateStr}</p>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Tanggal & Waktu</th>
-                <th>Pelanggan</th>
-                <th>Meja</th>
-                <th>Kasir</th>
-                <th>Metode</th>
-                <th class="right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
+           </style>
+         </head>
+         <body>
+           <div class="header">
+             <h1>Laporan Riwayat Transaksi</h1>
+             <p>Sate Sadjodo | Tanggal Cetak: ${dateStr}</p>
+           </div>
+           <table>
+             <thead>
+               <tr>
+                 <th>ID</th>
+                 <th>Tanggal & Waktu</th>
+                 <th>Pelanggan</th>
+                 <th>Meja</th>
+                 <th>Kasir</th>
+                 <th>Metode</th>
+                 <th class="right">Total</th>
+               </tr>
+             </thead>
+             <tbody>
               ${rowsHtml}
-              <tr class="total-row">
-                <td colspan="6" class="right">TOTAL PENDAPATAN</td>
-                <td class="right">Rp ${grandTotal.toLocaleString("id-ID")}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="footer">
-            <p>Dokumen ini dicetak otomatis oleh Sistem Kasir Sate Sadjodo.</p>
-          </div>
-          <script>
+               <tr class="total-row">
+                 <td colspan="6" class="right">TOTAL PENDAPATAN</td>
+                 <td class="right">Rp ${grandTotal.toLocaleString("id-ID")}</td>
+               </tr>
+             </tbody>
+           </table>
+           <div class="footer">
+             <p>Dokumen ini dicetak otomatis oleh Sistem Kasir Sate Sadjodo.</p>
+           </div>
+           <script>
             setTimeout(() => { window.print(); window.close(); }, 500);
-          </script>
-        </body>
-      </html>
+           </script>
+         </body>
+       </html>
     `;
     printWindow.document.write(htmlContent);
     printWindow.document.close();
@@ -462,33 +472,32 @@ export default function CashierDashboard() {
     if (!selectedOrder) return;
     const printWindow = window.open("", "_blank", "width=400,height=600");
     if (!printWindow) return alert("Izinkan popup untuk mencetak struk");
-
     const activeCabang = branches.find((b) => b.id === selectedCabangId) || branches[0];
     const dateStr = new Date(selectedOrder.tanggal).toLocaleString("id-ID");
 
     const itemsHtml = selectedOrder.items
       .map(
         (item) => `
-      <div class="item">
-        <div class="item-name">${item.menu.nama}</div>
-        <div class="flex">
-          <span>${item.jumlah} x ${item.harga_satuan.toLocaleString("id-ID")}</span>
-          <span>${(item.jumlah * item.harga_satuan).toLocaleString("id-ID")}</span>
-        </div>
-      </div>
-    `
+         <div class="item">
+           <div class="item-name">${item.menu.nama}</div>
+           <div class="flex">
+             <span>${item.jumlah} x ${item.harga_satuan.toLocaleString("id-ID")}</span>
+             <span>${(item.jumlah * item.harga_satuan).toLocaleString("id-ID")}</span>
+           </div>
+         </div>
+      `
       )
       .join("");
 
     const htmlContent = `
-      <html>
-        <head>
-          <title>Struk #${selectedOrder.id}</title>
-          <style>
+       <html>
+         <head>
+           <title>Struk #${selectedOrder.id}</title>
+           <style>
             @page { margin: 0; }
             body { 
               font-family: 'Courier New', Courier, monospace; 
-              width: 300px; /* Ukuran printer thermal 58mm/80mm */
+              width: 300px;
               margin: 20px auto; 
               color: #000; 
               font-size: 12px; 
@@ -506,69 +515,69 @@ export default function CashierDashboard() {
             .item-name { margin-bottom: 2px; }
             .total-section { margin-top: 10px; font-size: 14px; }
             .footer { margin-top: 20px; font-size: 11px; }
-          </style>
-        </head>
-        <body>
-          <div class="center">
-            <h2>${activeCabang?.nama_cabang ?? "SATE SADJODO"}</h2>
-            <p>${activeCabang?.alamat ?? "Jl. Kuliner No. 99, Bandung"}</p>
+           </style>
+         </head>
+         <body>
+           <div class="center">
+             <h2>${activeCabang?.nama_cabang ?? "SATE SADJODO"}</h2>
+             <p>${activeCabang?.alamat ?? "Jl. Kuliner No. 99, Bandung"}</p>
             ${
               activeCabang?.telepon
                 ? `<p>Telp: ${activeCabang.telepon}</p>`
                 : "<p>Telp: 0812-3456-7890</p>"
             }
-          </div>
+           </div>
           
-          <div class="dashed-line"></div>
+           <div class="dashed-line"></div>
           
-          <p>Waktu : ${dateStr}</p>
-          <p>Kasir : ${selectedOrder.kasir_nama || "-"}</p>
-          <p>Meja  : ${selectedOrder.nomor_meja}</p>
-          <p>Order : #${selectedOrder.id} - ${selectedOrder.nama_pelanggan}</p>
+           <p>Waktu : ${dateStr}</p>
+           <p>Kasir : ${selectedOrder.kasir_nama || "-"}</p>
+           <p>Meja  : ${selectedOrder.nomor_meja}</p>
+           <p>Order : #${selectedOrder.id} - ${selectedOrder.nama_pelanggan}</p>
           
-          <div class="dashed-line"></div>
+           <div class="dashed-line"></div>
           
           ${itemsHtml}
           
-          <div class="dashed-line"></div>
+           <div class="dashed-line"></div>
           
-          <div class="total-section">
-            <div class="flex bold">
-              <span>TOTAL</span>
-              <span>Rp ${selectedOrder.total_harga.toLocaleString("id-ID")}</span>
-            </div>
-            <div class="flex mt-1">
-              <span>METODE</span>
-              <span>${selectedOrder.metode_pembayaran}</span>
-            </div>
+           <div class="total-section">
+             <div class="flex bold">
+               <span>TOTAL</span>
+               <span>Rp ${selectedOrder.total_harga.toLocaleString("id-ID")}</span>
+             </div>
+             <div class="flex mt-1">
+               <span>METODE</span>
+               <span>${selectedOrder.metode_pembayaran}</span>
+             </div>
             ${
               selectedOrder.metode_pembayaran === "CASH"
                 ? `
-            <div class="flex mt-1">
-              <span>BAYAR</span>
-              <span>Rp ${(selectedOrder.uang_bayar ?? 0).toLocaleString("id-ID")}</span>
-            </div>
-            <div class="flex mt-1 bold">
-              <span>KEMBALI</span>
-              <span>Rp ${(selectedOrder.kembalian ?? 0).toLocaleString("id-ID")}</span>
-            </div>`
+             <div class="flex mt-1">
+               <span>BAYAR</span>
+               <span>Rp ${(selectedOrder.uang_bayar ?? 0).toLocaleString("id-ID")}</span>
+             </div>
+             <div class="flex mt-1 bold">
+               <span>KEMBALI</span>
+               <span>Rp ${(selectedOrder.kembalian ?? 0).toLocaleString("id-ID")}</span>
+             </div>`
                 : ""
             }
-          </div>
+           </div>
           
-          <div class="dashed-line"></div>
+           <div class="dashed-line"></div>
           
-          <div class="center footer">
-            <p class="bold">TERIMA KASIH</p>
-            <p>Selamat Menikmati Hidangan Kami</p>
-            <p>*** Sate Sadjodo POS ***</p>
-          </div>
+           <div class="center footer">
+             <p class="bold">TERIMA KASIH</p>
+             <p>Selamat Menikmati Hidangan Kami</p>
+             <p>*** Sate Sadjodo POS ***</p>
+           </div>
           
-          <script>
+           <script>
             setTimeout(() => { window.print(); window.close(); }, 500);
-          </script>
-        </body>
-      </html>
+           </script>
+         </body>
+       </html>
     `;
     printWindow.document.write(htmlContent);
     printWindow.document.close();
@@ -648,7 +657,7 @@ export default function CashierDashboard() {
           <button
             onClick={() => handleNextStatus(order)}
             disabled={isLoading}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95  ${
               isLoading
                 ? "bg-white/5 text-gray-500 cursor-not-allowed"
                 : `bg-gradient-to-r ${col.accent} text-white hover:shadow-xl ${col.shadow}`
@@ -682,10 +691,9 @@ export default function CashierDashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-cyan-500/30 overflow-hidden flex bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900/40 via-[#050505] to-[#050505]">
+    <div className="min-h-screen bg-[#050505] text-white font-sans flex overflow-hidden">
       {/* --- SIDEBAR --- */}
-      <aside className="w-20 bg-white/5 backdrop-blur-xl border-r border-white/10 flex flex-col items-center py-6 z-40 shadow-2xl">
-        
+      <aside className="w-20 bg-[#0a0a0a]/80 backdrop-blur-xl border-r border-white/5 flex flex-col items-center py-6 gap-6 fixed h-full z-40">
         {/* LOGO AREA SATE SADJODO */}
         <div className="mb-8 flex flex-col items-center gap-2 group">
           <div className="relative w-14 h-14 flex items-center justify-center">
@@ -765,7 +773,7 @@ export default function CashierDashboard() {
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden relative ml-20">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-rose-500/5 rounded-full blur-[100px] pointer-events-none" />
 
@@ -773,7 +781,7 @@ export default function CashierDashboard() {
         <header className="px-8 py-6 flex justify-between items-center z-10 border-b border-white/5 bg-black/20 backdrop-blur-sm">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-              SATE<span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600">SADJODO</span>
+              SATE <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600">SADJODO</span>
             </h1>
             <p className="text-gray-400 font-medium text-[11px] mt-1 tracking-wide flex items-center gap-2">
               <span className="relative flex h-2 w-2">

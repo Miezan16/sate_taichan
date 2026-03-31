@@ -52,6 +52,12 @@ export const MenuModal = ({ isOpen, onClose, onSave, menu }: MenuModalProps) => 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            // Peringatan jika file terlalu besar (> 1MB)
+            if (file.size > 1024 * 1024) {
+                alert("Ukuran gambar terlalu besar! Maksimal 1 MB. Mohon kompres gambar Anda terlebih dahulu.");
+                return;
+            }
+
             const reader = new FileReader();
             reader.onloadend = () => {
                 setFormData({ ...formData, image: reader.result as string });
@@ -66,7 +72,6 @@ export const MenuModal = ({ isOpen, onClose, onSave, menu }: MenuModalProps) => 
 
         try {
             const url = menu?.id ? `/api/admin/menu/${menu.id}` : "/api/admin/menu";
-            // FIX: Gunakan PATCH untuk edit (jika ada ID) dan POST untuk tambah baru
             const method = menu?.id ? "PATCH" : "POST";
 
             const res = await fetch(url, {
@@ -78,7 +83,7 @@ export const MenuModal = ({ isOpen, onClose, onSave, menu }: MenuModalProps) => 
             const result = await res.json();
 
             if (!res.ok) {
-                throw new Error(result.error || "Gagal menyimpan data");
+                throw new Error(result.error || result.detail || "Gagal menyimpan data");
             }
 
             alert(menu?.id ? "Menu berhasil diperbarui!" : "Menu berhasil ditambahkan!");
@@ -86,6 +91,7 @@ export const MenuModal = ({ isOpen, onClose, onSave, menu }: MenuModalProps) => 
             onClose();
         } catch (error: any) {
             alert("Error: " + error.message);
+            console.error("GAGAL UPDATE:", error);
         } finally {
             setLoading(false);
         }
@@ -108,7 +114,7 @@ export const MenuModal = ({ isOpen, onClose, onSave, menu }: MenuModalProps) => 
                 <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar">
                     {/* Upload Gambar */}
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-400">Foto Menu</label>
+                        <label className="text-sm font-medium text-gray-400">Foto Menu (Maks 1 MB)</label>
                         <div className="flex items-center gap-4">
                             <div className="w-24 h-24 rounded-2xl bg-white/5 border-2 border-dashed border-white/10 overflow-hidden flex items-center justify-center">
                                 {formData.image ? (
@@ -140,15 +146,18 @@ export const MenuModal = ({ isOpen, onClose, onSave, menu }: MenuModalProps) => 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-400">Harga (Rp)</label>
-                            <input type="number" required value={formData.harga} onChange={(e) => setFormData({ ...formData, harga: parseInt(e.target.value) })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none" />
+                            {/* FIX: parseInt diganti dengan || 0 untuk mencegah NaN */}
+                            <input type="number" required value={formData.harga || ""} onChange={(e) => setFormData({ ...formData, harga: parseInt(e.target.value) || 0 })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none" />
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-400">Stok</label>
-                            <input type="number" required value={formData.stok} onChange={(e) => setFormData({ ...formData, stok: parseInt(e.target.value) })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none" />
+                            {/* FIX: parseInt diganti dengan || 0 untuk mencegah NaN */}
+                            <input type="number" required value={formData.stok || ""} onChange={(e) => setFormData({ ...formData, stok: parseInt(e.target.value) || 0 })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none" />
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-400">Min. Stok (Alert)</label>
-                            <input type="number" value={formData.low_stock_threshold} onChange={(e) => setFormData({ ...formData, low_stock_threshold: parseInt(e.target.value) })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none" />
+                            {/* FIX: parseInt diganti dengan || 0 untuk mencegah NaN */}
+                            <input type="number" value={formData.low_stock_threshold || ""} onChange={(e) => setFormData({ ...formData, low_stock_threshold: parseInt(e.target.value) || 0 })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none" />
                         </div>
                     </div>
 

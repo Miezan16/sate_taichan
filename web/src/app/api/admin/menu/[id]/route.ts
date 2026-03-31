@@ -1,130 +1,71 @@
 // src/app/api/admin/menu/[id]/route.ts
-// PATCH  — Update menu (Admin only, Zod, Activity Log on price/stock change)
-// DELETE — Soft delete menu (Admin only)
-
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin, isErrorResponse } from '@/lib/adminGuard';
-import { menuUpdateSchema } from '@/lib/zod/menu';
 
 type Params = { params: Promise<{ id: string }> };
 
-// ✅ PATCH — Update menu
+// ✅ PATCH — Update menu (Bypass Zod / Jalur Langsung)
 export async function PATCH(request: NextRequest, context: Params) {
-    const authResult = await requireAdmin(request);
-    if (isErrorResponse(authResult)) return authResult;
-    const { session } = authResult;
+  const authResult = await requireAdmin(request);
+  if (isErrorResponse(authResult)) return authResult;
+  const { id } = await context.params;
+  const menuId = parseInt(id);
+  if (isNaN(menuId)) return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 });
 
-    const { id } = await context.params;
-    const menuId = parseInt(id);
-    if (isNaN(menuId)) return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 });
+  try {
+    const body = await request.json();
 
-    try {
-        const body = await request.json();
-
-        // 🔥 TRIK BYPASS ZOD UNTUK EDIT GAMBAR:
-        // Sama seperti di fungsi tambah, kita "kelabui" Zod sementara pakai URL palsu
-        const imageBase64 = body.image;
-        if (imageBase64 && imageBase64.startsWith('data:image')) {
-            body.image = "https://lolos-validasi.com/gambar.png";
-        }
-
-        const parsed = menuUpdateSchema.safeParse(body);
-        if (!parsed.success) {
-            return NextResponse.json(
-                { error: 'Data tidak valid', details: parsed.error.flatten().fieldErrors },
-                { status: 400 }
-            );
-        }
-
-        // 🔥 Kembalikan gambar aslinya (Base64) sebelum dimasukkan ke database
-        const dataToUpdate = { ...parsed.data };
-        if (imageBase64 && imageBase64.startsWith('data:image')) {
-            dataToUpdate.image = imageBase64;
-        }
-
-        // Ambil data lama untuk dicatat di activity log
-        const existing = await prisma.menu.findUnique({ where: { id: menuId } });
-        if (!existing || existing.deleted_at !== null) {
-            return NextResponse.json({ error: 'Menu tidak ditemukan' }, { status: 404 });
-        }
-
-        // Eksekusi Update ke Database
-        const updatedMenu = await prisma.menu.update({
-            where: { id: menuId },
-            data: dataToUpdate,
-        });
-
-        // Catat Activity Log jika harga berubah
-        if (existing.harga !== updatedMenu.harga) {
-            await prisma.activityLog.create({
-                data: {
-                    user_id: session.userId,
-                    action: 'UPDATE_PRICE',
-                    entity: 'Menu',
-                    entity_id: menuId,
-                    old_value: existing.harga.toString(),
-                    new_value: updatedMenu.harga.toString(),
-                },
-            });
-        }
-
-        // Catat Activity Log jika stok berubah
-        if (existing.stok !== updatedMenu.stok) {
-            await prisma.activityLog.create({
-                data: {
-                    user_id: session.userId,
-                    action: 'UPDATE_STOCK',
-                    entity: 'Menu',
-                    entity_id: menuId,
-                    old_value: existing.stok.toString(),
-                    new_value: updatedMenu.stok.toString(),
-                },
-            });
-        }
-
-        return NextResponse.json({ ...updatedMenu, is_low_stock: updatedMenu.stok <= updatedMenu.low_stock_threshold }, { status: 200 });
-
-    } catch (error) {
-        console.error('❌ Error PATCH /api/admin/menu/[id]:', error);
-        return NextResponse.json({ error: 'Gagal update menu' }, { status: 500 });
+    // 1. Amankan tipe data angka (String dari frontend dipaksa jadi Number)
+    if (body.harga !== undefined && body.harga !== null) body.harga = Number(body.harga);
+    if (body.stok !== undefined && body.stok !== null) body.stok = Number(body.stok);
+    if (body.low_stock_threshold !== undefined && body.low_stock_threshold !== null) {
+      body.low_stock_threshold = Number(body.low_stock_threshold);
     }
+
+    // 2. Buang properti yang tidak boleh di-update oleh Prisma
+    const dataToUpdate = { ...body };
+    if ('id' in dataToUpdate) delete dataToUpdate.id;
+    if ('createdAt' in dataToUpdate) delete dataToUpdate.createdAt;
+    if ('updatedAt' in dataToUpdate) delete dataToUpdate.updatedAt;
+    if ('is_low_stock' in dataToUpdate) delete dataToUpdate.is_low_stock;
+
+    // 3. Langsung eksekusi ke Database tanpa lewat Zod
+    const updatedMenu = await prisma.menu.update({
+      where: { id: menuId },
+      data: dataToUpdate,
+    });
+
+    return NextResponse.json(updatedMenu, { status: 200 });
+
+  } catch (error) {
+    console.error('❌ Error PATCH /api/admin/menu/[id]:', error);
+    
+    // Kirim pesan error database ke frontend supaya kita tahu kalau gagal
+    return NextResponse.json({ 
+      error: 'Gagal update menu ke database', 
+      detail: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
+  }
 }
 
-// ✅ DELETE — Soft delete (set deleted_at = now())
+// ✅ DELETE — HARD DELETE (Hapus permanen dari database)
 export async function DELETE(request: NextRequest, context: Params) {
-    const authResult = await requireAdmin(request);
-    if (isErrorResponse(authResult)) return authResult;
-    const { session } = authResult;
+  const authResult = await requireAdmin(request);
+  if (isErrorResponse(authResult)) return authResult;
+  const { id } = await context.params;
+  const menuId = parseInt(id);
+  if (isNaN(menuId)) return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 });
 
-    const { id } = await context.params;
-    const menuId = parseInt(id);
-    if (isNaN(menuId)) return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 });
+  try {
+    // HARD DELETE - Benar-benar hapus dari database
+    await prisma.menu.delete({
+      where: { id: menuId },
+    });
 
-    try {
-        const existing = await prisma.menu.findUnique({ where: { id: menuId } });
-        if (!existing || existing.deleted_at !== null) {
-            return NextResponse.json({ error: 'Menu tidak ditemukan atau sudah dihapus' }, { status: 404 });
-        }
-
-        await prisma.menu.update({
-            where: { id: menuId },
-            data: { deleted_at: new Date(), tersedia: false },
-        });
-
-        await prisma.activityLog.create({
-            data: {
-                user_id: session.userId,
-                action: 'DELETE_MENU',
-                entity: 'Menu',
-                entity_id: menuId,
-                old_value: JSON.stringify({ nama: existing.nama }),
-            },
-        });
-
-        return NextResponse.json({ message: `Menu "${existing.nama}" berhasil dihapus (soft delete)` }, { status: 200 });
-    } catch (error) {
-        console.error('❌ Error DELETE /api/admin/menu/[id]:', error);
-        return NextResponse.json({ error: 'Gagal menghapus menu' }, { status: 500 });
-    }
+    return NextResponse.json({ message: `Menu berhasil dihapus permanen dari database` }, { status: 200 });
+  } catch (error) {
+    console.error('❌ Error DELETE:', error);
+    return NextResponse.json({ error: 'Gagal menghapus menu dari database' }, { status: 500 });
+  }
 }

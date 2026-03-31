@@ -26,6 +26,7 @@ import {
   Quote,
   HeartPulse,
   Award,
+  ChevronLeft,
 } from "lucide-react";
 import ChatWidget from "@/components/ChatWidget";
 
@@ -38,7 +39,10 @@ interface MenuItem {
   image: string;
   kategori: string;
   stok: number;
+  protein?: string;
+  tersedia?: boolean;
 }
+
 interface CartItem extends MenuItem {
   qty: number;
 }
@@ -46,8 +50,94 @@ interface CartItem extends MenuItem {
 // --- 2. KONSTANTA ---
 const CATEGORIES = ["All", "Sate", "Karbo", "Camilan", "Minuman"];
 const AVAILABLE_TABLES = Array.from({ length: 12 }, (_, i) =>
-  (i + 1).toString(),
+  (i + 1).toString()
 );
+
+// --- 3. MAPPING FOTO MENU MANUAL (FALLBACK JIKA TIDAK ADA FOTO DARI ADMIN) ---
+const MENU_IMAGES: Record<string, string> = {
+  "Sate Taichan Sapi": "/1.png",
+  "Sate Taichan Bumbu Kacang": "/2.png",
+  "Sate Taichan Kulit": "/3.png",
+  "Lontong": "/5.png",
+  "Indomie Goreng Taichan": "/6.png",
+  "Nasi Daun Jeruk": "/7.png",
+  "Kulit Ayam Krispi": "/8.png",
+  "Gyoza Chilli Oil": "/9.png",
+  "Ceker Mercon": "/10.png",
+  "Rich Harvest Ramen": "/11.png",
+  "Sate Taichan Paket Komplit": "/12.png",
+  "Sate Taichan Premium": "/13.png",
+  "Tahu Cabai Garam": "/14.png",
+  "Chilled Craft Blend": "/15.png",
+  "BBQ Ribs Special": "/16.png",
+  "Lemon Fresh Slice": "/17.png",
+  "Es Teh Manis": "/18.png",
+  "Es Jeruk Peras": "/19.png",
+};
+
+// --- DATA SLIDER ---
+const SLIDER_DATA = [
+  {
+    id: 1,
+    title: "SATE TAICHAN PREMIUM",
+    subtitle: "Grilled Chicken Skewers with Lime & Chili",
+    desc: "Daging ayam pilihan dibakar sempurna dengan arang batok, disajikan dengan sambal rawit merah segar, perasan jeruk nipis, dan kerupuk, memberikan rasa yang tak terlupakan.",
+    image: "/sate.svg",
+    price: 25000,
+    theme: "from-red-950/90 via-red-900/70 to-black/95",
+    accentColor: "#C1121F",
+  },
+  {
+    id: 2,
+    title: "DIMSUM GYOZA CHILI OIL",
+    subtitle: "Hand-Crafted Dumplings with Szechuan Spice",
+    desc: "Hand-crafted gyoza, pan-seared to perfection, then steamed and generously enveloped in our signature Szechuan-style chili oil.",
+    image: "/dimsum.svg",
+    price: 22000,
+    theme: "from-red-950/90 via-orange-900/70 to-black/95",
+    accentColor: "#DC2626",
+  },
+  {
+    id: 3,
+    title: "BBQ RIBS SPECIAL",
+    subtitle: "Tender Ribs with Rich BBQ Sauce",
+    desc: "Daging iga sapi pilihan yang dimasak perlahan hingga empuk, dilumuri dengan saus BBQ rahasia yang kaya rasa.",
+    image: "/sapi.svg",
+    price: 40000,
+    theme: "from-amber-950/90 via-orange-900/70 to-black/95",
+    accentColor: "#EA580C",
+  },
+  {
+    id: 4,
+    title: "LEMON FRESH SLICE",
+    subtitle: "Hand-Pressed Lemonade with Ice",
+    desc: "A vibrant, cooling blend of hand-pressed lemon juice and simple syrup, served over crystal-clear ice for a pure, refreshing taste. Pure citrus bliss.",
+    image: "/lemon.svg",
+    price: 10000,
+    theme: "from-green-950/90 via-lime-900/70 to-black/95",
+    accentColor: "#A3E635",
+  },
+  {
+    id: 5,
+    title: "RICH HARVEST RAMEN",
+    subtitle: "A Hearty & Flavorful Ramen Bowl with Tamago",
+    desc: "A rich, flavorful bowl of traditional ramen, featuring a deep umami-based broth and hand-pulled noodles. Topped with marinated Ajitama.",
+    image: "/mie.svg",
+    price: 35000,
+    theme: "from-orange-950/90 via-amber-800/70 to-black/95",
+    accentColor: "#F59E0B",
+  },
+  {
+    id: 6,
+    title: "CHILLED CRAFT BLENDS",
+    subtitle: "A Curated Selection of Handcrafted Beverages",
+    desc: "Featuring premium Matcha Latte, artisan Caramel Espresso with visible drizzle, rich Mocha, and our signature Iced Milk Coffee.",
+    image: "/minuman.svg",
+    price: 10000,
+    theme: "from-teal-950/90 via-emerald-800/70 to-black/95",
+    accentColor: "#D97706",
+  },
+];
 
 // --- SUB-COMPONENTS ---
 const SidebarItem = ({
@@ -65,12 +155,12 @@ const SidebarItem = ({
     onClick={onClick}
     className={`group relative flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${
       active
-        ? "bg-gradient-to-br from-[#C1121F] to-red-800 text-white shadow-[0_0_20px_rgba(193,18,31,0.5)] scale-110"
+        ? "bg-gradient-to-br from-[#C1121F] to-red-800 text-white shadow-[0_0_25px_rgba(193,18,31,0.6)] scale-110"
         : "text-gray-400 hover:bg-white/10 hover:text-white"
     }`}
     title={label}
   >
-    <Icon size={22} strokeWidth={active ? 2.5 : 2} />
+    <Icon size={24} strokeWidth={active ? 2.5 : 2} />
     <span className="absolute left-16 bg-[#1a1a1a] text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all border border-white/10 whitespace-nowrap z-50 shadow-xl font-medium translate-x-[-10px] group-hover:translate-x-0">
       {label}
     </span>
@@ -93,7 +183,7 @@ export default function CustomerOrderPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedMenuToAdd, setSelectedMenuToAdd] = useState<MenuItem | null>(
-    null,
+    null
   );
   const [addQty, setAddQty] = useState(1);
 
@@ -106,9 +196,13 @@ export default function CustomerOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedOrderId, setSubmittedOrderId] = useState<number | null>(null);
 
+  // --- SLIDER STATE ---
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isAutoSliding, setIsAutoSliding] = useState(true);
+
   const cartTotal = cart.reduce(
     (total, item) => total + item.harga * item.qty,
-    0,
+    0
   );
   const totalItems = cart.reduce((total, item) => total + item.qty, 0);
 
@@ -116,19 +210,24 @@ export default function CustomerOrderPage() {
   const adjustStock = (id: number, delta: number) => {
     setMenus((prev) =>
       prev.map((m) =>
-        m.id === id ? { ...m, stok: Math.max(0, m.stok + delta) } : m,
-      ),
+        m.id === id ? { ...m, stok: Math.max(0, m.stok + delta) } : m
+      )
     );
   };
 
-  // --- FETCH DATA MENU DARI API ---
+  // --- FETCH DATA MENU DARI API (DIPERBARUI SETIAP ADA PERUBAHAN) ---
   const fetchMenus = async () => {
     try {
-      // DITAMBAHKAN { cache: "no-store" } AGAR SELALU AMBIL DATA TERBARU DARI ADMIN
+      // Menggunakan cache: "no-store" untuk memastikan data selalu fresh dari database
       const res = await fetch("/api/menu", { cache: "no-store" });
       if (!res.ok) throw new Error("Gagal mengambil data menu");
       const data = await res.json();
-      setMenus(data.map((item: any) => ({ ...item, stok: item.stok ?? 99 })));
+      // Filter hanya menu yang tersedia (tersedia: true) dan set stok default jika null
+      setMenus(
+        data
+          .filter((item: any) => item.tersedia !== false)
+          .map((item: any) => ({ ...item, stok: item.stok ?? 99 }))
+      );
     } catch (error) {
       console.error(error);
     } finally {
@@ -143,7 +242,7 @@ export default function CustomerOrderPage() {
       if (res.ok) {
         const data = await res.json();
         const activeOrders = data.filter(
-          (order: any) => order.status !== "COMPLETED",
+          (order: any) => order.status !== "COMPLETED"
         );
         const occupied = activeOrders.map((order: any) => order.nomor_meja);
         setOccupiedTables(occupied);
@@ -156,11 +255,11 @@ export default function CustomerOrderPage() {
   useEffect(() => {
     fetchMenus();
     fetchOccupiedTables();
-
+    // Refresh data menu setiap 5 detik untuk sinkronisasi dengan admin
     const interval = setInterval(() => {
+      fetchMenus();
       fetchOccupiedTables();
     }, 5000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -171,16 +270,14 @@ export default function CustomerOrderPage() {
       alert("Stok tidak mencukupi!");
       return;
     }
-
     adjustStock(selectedMenuToAdd.id, -addQty);
-
     setCart((prev) => {
       const existing = prev.find((item) => item.id === selectedMenuToAdd.id);
       if (existing)
         return prev.map((item) =>
           item.id === selectedMenuToAdd.id
             ? { ...item, qty: item.qty + addQty }
-            : item,
+            : item
         );
       return [...prev, { ...selectedMenuToAdd, qty: addQty }];
     });
@@ -207,7 +304,6 @@ export default function CustomerOrderPage() {
     } else {
       adjustStock(item.id, 1);
     }
-
     setCart((prev) =>
       prev
         .map((i) => {
@@ -217,7 +313,7 @@ export default function CustomerOrderPage() {
           }
           return i;
         })
-        .filter((i) => i.qty > 0),
+        .filter((i) => i.qty > 0)
     );
   };
 
@@ -243,7 +339,6 @@ export default function CustomerOrderPage() {
       if (!response.ok) throw new Error("Gagal");
       const data = await response.json();
       if (data && data.id) setSubmittedOrderId(data.id);
-
       setCheckoutStep("waiting");
       setCart([]);
       fetchOccupiedTables();
@@ -295,103 +390,154 @@ export default function CustomerOrderPage() {
     return matchesSearch && matchesCategory;
   });
 
+  // --- FUNGSI UNTUK MENDAPATKAN GAMBAR MENU (PRIORITAS: DATABASE > MANUAL MAPPING > ID) ---
+  const getMenuImage = (menu: MenuItem) => {
+    // Prioritas 1: Gambar dari database (hasil upload admin)
+    if (menu.image && menu.image.trim() !== "") {
+      return menu.image;
+    }
+    // Prioritas 2: Mapping manual berdasarkan nama
+    if (MENU_IMAGES[menu.nama]) {
+      return MENU_IMAGES[menu.nama];
+    }
+    // Prioritas 3: Fallback ke ID
+    return `/${menu.id}.png`;
+  };
+
+  // --- SLIDER NAVIGATION ---
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev === SLIDER_DATA.length - 1 ? 0 : prev + 1));
+  };
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev === 0 ? SLIDER_DATA.length - 1 : prev - 1));
+  };
+
+  // Auto slide setiap 5 detik
+  useEffect(() => {
+    if (!isAutoSliding) return;
+    const slideInterval = setInterval(() => {
+      nextSlide();
+    }, 5000);
+    return () => clearInterval(slideInterval);
+  }, [isAutoSliding]);
+
   // --- VIEW RENDERERS ---
   const renderHome = () => (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-8"
+      key={currentSlide}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.8 }}
+      className="absolute inset-0 w-full h-full bg-[#050505] overflow-hidden"
     >
-      <div className="relative rounded-[3rem] overflow-hidden h-[500px] flex items-center justify-center">
-        {/* FOTO HERO: Sate Aesthetic dari Unsplash */}
-        <img
-          src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
-          className="absolute inset-0 w-full h-full object-cover"
-          alt="Sate Sadjodo Taichan"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-black/50 to-transparent" />
-        <div className="relative z-10 w-full flex flex-col md:flex-row justify-between md:items-end gap-6 px-6">
-          <div className="max-w-2xl">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full w-fit mb-6 border border-white/20 shadow-lg"
-            >
-              <Star className="text-yellow-400 fill-yellow-400" size={16} />
-              <span className="text-white text-xs font-bold tracking-widest uppercase">
-                The Best Taichan in Town
-              </span>
-            </motion.div>
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="text-5xl md:text-7xl font-black text-white uppercase tracking-tighter leading-[0.9] mb-6 drop-shadow-2xl"
-            >
-              Sate Sadjodo <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C1121F] to-red-500">
-                Premium.
-              </span>
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="text-gray-300 text-lg mb-8 max-w-lg leading-relaxed"
-            >
-              Sensasi gurih, pedas, dan perasan jeruk nipis segar yang menggugah
-              selera. Dibakar sempurna di atas arang batok kelapa khusus
-              untukmu.
-            </motion.p>
-            <motion.button
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5 }}
-              onClick={() => setActiveTab("Menu")}
-              className="bg-gradient-to-r from-[#C1121F] to-red-700 hover:from-red-600 hover:to-red-800 text-white px-8 py-4 rounded-full font-bold uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(193,18,31,0.4)] flex items-center gap-3 group/btn"
-            >
-              Lihat Menu{" "}
-              <ArrowRight
-                size={20}
-                className="group-hover/btn:translate-x-1 transition-transform"
-              />
-            </motion.button>
-          </div>
-        </div>
-      </div>
+      {/* Background Gradient Modern */}
+      <div
+        className="absolute inset-0 transition-colors duration-1000"
+        style={{
+          background: `radial-gradient(circle at 50% 50%, ${SLIDER_DATA[currentSlide].accentColor}30 0%, #110505 50%, #050505 100%)`,
+        }}
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/5 p-6 rounded-3xl flex items-center gap-5 hover:border-[#C1121F]/50 transition-colors group shadow-lg">
-          <div className="w-14 h-14 bg-gradient-to-br from-[#C1121F]/20 to-transparent rounded-2xl flex items-center justify-center text-[#C1121F] group-hover:scale-110 transition-transform">
-            <Flame size={26} />
-          </div>
-          <div>
-            <h4 className="text-white font-bold text-lg">100% Daging Segar</h4>
-            <p className="text-sm text-gray-400">
-              Kualitas premium setiap hari
-            </p>
-          </div>
+      {/* Content Container */}
+      <div className="relative z-10 h-full w-full flex flex-col justify-between p-6 md:p-12 lg:p-16 max-w-[1400px] mx-auto">
+        {/* TOP LEFT: Title & Subtitle */}
+        <div className="max-w-2xl z-20 mt-4 md:mt-8">
+          <motion.h1
+            initial={{ y: -30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.8 }}
+            className="text-4xl md:text-6xl lg:text-7xl font-bold text-white leading-none uppercase tracking-tight"
+          >
+            {SLIDER_DATA[currentSlide].title}
+          </motion.h1>
+          <motion.h2
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.8 }}
+            className="text-2xl md:text-4xl lg:text-5xl text-white/90 font-light leading-snug mt-4 max-w-lg"
+          >
+            {SLIDER_DATA[currentSlide].subtitle}
+          </motion.h2>
         </div>
-        <div className="bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/5 p-6 rounded-3xl flex items-center gap-5 hover:border-[#C1121F]/50 transition-colors group shadow-lg">
-          <div className="w-14 h-14 bg-gradient-to-br from-[#C1121F]/20 to-transparent rounded-2xl flex items-center justify-center text-[#C1121F] group-hover:scale-110 transition-transform">
-            <Clock size={26} />
-          </div>
-          <div>
-            <h4 className="text-white font-bold text-lg">Penyajian Cepat</h4>
-            <p className="text-sm text-gray-400">
-              Dimasak langsung saat dipesan
-            </p>
-          </div>
+
+        {/* CENTER: 3D Tilted Neon Ring & Food Image */}
+        <div className="absolute top-[50%] left-[50%] -translate-x-1/2 -translate-y-[45%] w-full flex justify-center items-center pointer-events-none z-10">
+          {/* Tilted Neon Ring */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0, rotate: -15 }}
+            animate={{ scale: 1, opacity: 1, rotate: -8 }}
+            transition={{ delay: 0.3, duration: 1 }}
+            className="absolute w-[320px] md:w-[550px] lg:w-[750px] h-[100px] md:h-[180px] lg:h-[220px] rounded-[100%] border-[2px] md:border-[4px] mt-[100px] md:mt-[180px] lg:mt-[220px]"
+            style={{
+              borderColor: SLIDER_DATA[currentSlide].accentColor,
+              boxShadow: `0 0 50px ${SLIDER_DATA[currentSlide].accentColor}, inset 0 0 50px ${SLIDER_DATA[currentSlide].accentColor}`,
+              opacity: 0.7,
+            }}
+          />
+          {/* Food Image */}
+          <motion.img
+            initial={{ scale: 0.8, opacity: 0, y: 50 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ type: "spring", bounce: 0.4, duration: 1.2, delay: 0.1 }}
+            src={SLIDER_DATA[currentSlide].image}
+            alt={SLIDER_DATA[currentSlide].title}
+            className="relative z-20 w-[280px] h-[280px] md:w-[450px] md:h-[450px] lg:w-[600px] lg:h-[600px] object-cover rounded-full drop-shadow-[0_40px_60px_rgba(0,0,0,0.8)] pointer-events-auto"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1000";
+            }}
+          />
         </div>
-        <div className="bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/5 p-6 rounded-3xl flex items-center gap-5 hover:border-[#C1121F]/50 transition-colors group shadow-lg">
-          <div className="w-14 h-14 bg-gradient-to-br from-[#C1121F]/20 to-transparent rounded-2xl flex items-center justify-center text-[#C1121F] group-hover:scale-110 transition-transform">
-            <HeartPulse size={26} />
-          </div>
-          <div>
-            <h4 className="text-white font-bold text-lg">Sambal Spesial</h4>
-            <p className="text-sm text-gray-400">Resep rahasia pedas nendang</p>
-          </div>
+
+        {/* BOTTOM SECTION - Diberi padding bawah agar tidak menyatu dengan navbar mobile */}
+        <div className="flex flex-col md:flex-row justify-between items-end z-20 pb-28 md:pb-12 gap-6 relative">
+          {/* Bottom Left: Harga & Deskripsi */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+            className="self-start md:self-end"
+          >
+            <div className="text-3xl md:text-5xl font-black text-white tracking-wider drop-shadow-lg mb-2">
+              Rp {SLIDER_DATA[currentSlide].price.toLocaleString("id-ID")}
+            </div>
+            <div className="max-w-[300px] md:max-w-md text-gray-300 text-xs md:text-sm leading-relaxed">
+              {SLIDER_DATA[currentSlide].desc}
+            </div>
+          </motion.div>
+
+          {/* Bottom Right: Kontrol Navigasi & Action */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+            className="flex flex-col items-end gap-5 w-full md:w-auto"
+          >
+            {/* Arrow Navigations */}
+            <div className="flex gap-4 self-end">
+              <button
+                onClick={() => {
+                  prevSlide();
+                  setIsAutoSliding(false);
+                  setTimeout(() => setIsAutoSliding(true), 10000);
+                }}
+                className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-white hover:bg-white/10 hover:border-white/50 transition-all backdrop-blur-md"
+              >
+                <ArrowRight size={20} className="rotate-180" />
+              </button>
+              <button
+                onClick={() => {
+                  nextSlide();
+                  setIsAutoSliding(false);
+                  setTimeout(() => setIsAutoSliding(true), 10000);
+                }}
+                className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-white hover:bg-white/10 hover:border-white/50 transition-all backdrop-blur-md"
+              >
+                <ArrowRight size={20} />
+              </button>
+            </div>
+          </motion.div>
         </div>
       </div>
     </motion.div>
@@ -403,39 +549,40 @@ export default function CustomerOrderPage() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-8"
     >
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <span className="text-[10px] md:text-xs font-black text-[#C1121F] tracking-[0.2em] uppercase mb-2 block bg-red-500/10 w-fit px-3 py-1 rounded-md border border-red-500/20">
-            Menu Spesial Sate Sadjodo
-          </span>
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight">
-            LIST MENU <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C1121F] to-red-800">SADJODO</span>
-          </h2>
-          <p className="text-gray-400 font-medium">
-            Dari yang pedas membakar sampai yang manis menyegarkan.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/5 rounded-full px-5 py-3 shadow-lg w-full md:w-auto focus-within:border-white/20 transition-all">
-          <Search size={20} className="text-gray-500" />
-          <input
-            type="text"
-            placeholder="Cari sate, minum..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-transparent border-none outline-none text-white w-full md:w-48 placeholder:text-gray-600 font-medium"
-          />
-        </div>
+      <div className="text-center space-y-3">
+        <h2 className="text-3xl md:text-4xl font-black text-white">
+          Menu Spesial Sadjodo
+        </h2>
+        <p className="text-gray-400 text-sm md:text-base max-w-2xl mx-auto">
+          Dari yang pedas membakar sampai yang manis menyegarkan.
+        </p>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+      {/* Search Bar */}
+      <div className="relative max-w-2xl mx-auto">
+        <Search
+          size={20}
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"
+        />
+        <input
+          type="text"
+          placeholder="Cari sate, minum..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="bg-[#0a0a0a] border border-white/10 rounded-full pl-12 pr-4 py-3 outline-none text-white placeholder:text-gray-600 font-medium w-full focus:border-[#C1121F] focus:ring-2 focus:ring-[#C1121F]/20 transition-all"
+        />
+      </div>
+
+      {/* Category Filter */}
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide justify-center">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
             onClick={() => setSelectedCategory(cat)}
-            className={`px-6 py-2.5 rounded-full font-bold text-sm transition-all whitespace-nowrap ${
+            className={`px-6 py-3 rounded-full font-bold text-sm transition-all whitespace-nowrap ${
               selectedCategory === cat
-                ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                : "bg-[#0a0a0a] border border-white/10 text-gray-400 hover:bg-white/5"
+                ? "bg-gradient-to-r from-[#C1121F] to-red-700 text-white shadow-[0_0_20px_rgba(193,18,31,0.4)]"
+                : "bg-[#0a0a0a] border border-white/10 text-gray-400 hover:bg-white/5 hover:border-white/20"
             }`}
           >
             {cat}
@@ -463,24 +610,28 @@ export default function CustomerOrderPage() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 key={menu.id}
-                className={`bg-[#0a0a0a] border border-white/5 rounded-[2rem] overflow-hidden group hover:border-white/10 transition-all shadow-xl flex flex-col ${
+                className={`bg-[#0a0a0a] border border-white/5 rounded-[2rem] overflow-hidden group hover:border-white/15 transition-all shadow-xl hover:shadow-2xl flex flex-col ${
                   isOutOfStock ? "opacity-50 grayscale" : ""
                 }`}
               >
-                <div className="relative h-48 overflow-hidden bg-[#111]">
+                <div className="relative h-56 overflow-hidden bg-[#111]">
+                  {/* FOTO MENU: PRIORITAS DATABASE > MANUAL MAPPING > ID */}
                   <img
-                    src={
-                      menu.image ||
-                      "https://images.unsplash.com/photo-1628294895950-9805252327bc?q=80&w=1000"
-                    }
+                    src={getMenuImage(menu)}
                     alt={menu.nama}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1000";
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent" />
-                  <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-2">
+                  <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-md px-3 py-2 rounded-xl border border-white/10 flex items-center gap-2">
                     <Flame
                       size={14}
-                      className={isOutOfStock ? "text-gray-500" : "text-[#C1121F]"}
+                      className={
+                        isOutOfStock ? "text-gray-500" : "text-[#C1121F]"
+                      }
                     />
                     <span
                       className={`text-xs font-black ${
@@ -509,14 +660,12 @@ export default function CustomerOrderPage() {
                       {menu.harga.toLocaleString("id-ID")}
                     </p>
                     <button
-                      onClick={() =>
-                        !isOutOfStock && setSelectedMenuToAdd(menu)
-                      }
+                      onClick={() => !isOutOfStock && setSelectedMenuToAdd(menu)}
                       disabled={isOutOfStock}
                       className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg active:scale-95 ${
                         isOutOfStock
                           ? "bg-white/5 text-gray-600 cursor-not-allowed"
-                          : "bg-white text-black hover:bg-gray-200 shadow-white/10"
+                          : "bg-gradient-to-br from-[#C1121F] to-red-700 text-white hover:shadow-[0_0_20px_rgba(193,18,31,0.4)]"
                       }`}
                     >
                       <Plus size={24} />
@@ -537,111 +686,124 @@ export default function CustomerOrderPage() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-8 pb-24"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        
-        {/* KOLOM KIRI: ALAMAT CABANG & INFO KONTAK */}
-        <div className="lg:col-span-2 space-y-6 flex flex-col justify-center">
+      <div className="text-center space-y-3">
+        <h2 className="text-3xl md:text-4xl font-black text-white">
+          Kunjungi Cabang Kami
+        </h2>
+        <p className="text-gray-400 text-sm md:text-base max-w-2xl mx-auto">
+          Pilih cabang terdekat dari lokasi Anda. Nikmati sate taichan otentik
+          langsung dari pemanggang kami dalam suasana yang nyaman.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <a
+            href="https://maps.app.goo.gl/Bg9c4Gz2S8m3qThX9"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-[#0a0a0a] border border-white/5 p-6 rounded-2xl flex items-start gap-4 hover:bg-white/5 hover:border-red-500/30 transition-all duration-300 group cursor-pointer shadow-lg"
+          >
+            <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-red-500 group-hover:text-white transition-all shrink-0">
+              <MapPin size={24} />
+            </div>
             <div>
-              <h2 className="text-4xl font-black text-white mb-3">Kunjungi <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C1121F] to-red-500">Cabang Kami.</span></h2>
-              <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                Pilih cabang terdekat dari lokasi Anda. Nikmati sate taichan otentik langsung dari pemanggang kami dalam suasana yang nyaman.
+              <h3 className="text-white font-bold text-base mb-1 group-hover:text-red-400 transition-colors">
+                Cabang Rancamanyar
+              </h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Jl. Bojong Koneng, Rancamanyar, Kec. Baleendah, Kabupaten
+                Bandung, Jawa Barat 40375
               </p>
             </div>
+          </a>
 
-            <div className="space-y-4">
-              {/* CABANG RANCAMANYAR - DENGAN LINK GOOGLE MAPS ASLI */}
-              <a
-                href="https://maps.app.goo.gl/Bg9c4Gz2S8m3qThX9"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-[#0a0a0a] border border-white/5 p-5 rounded-2xl flex items-start gap-4 hover:bg-white/5 hover:border-red-500/30 transition-all duration-300 group cursor-pointer shadow-lg"
-              >
-                <div className="w-10 h-10 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-red-500 group-hover:text-white transition-all shrink-0">
-                  <MapPin size={20} />
-                </div>
-                <div>
-                  <h3 className="text-white font-bold text-base mb-1 group-hover:text-red-400 transition-colors">
-                    Cabang Rancamanyar
-                  </h3>
-                  <p className="text-gray-400 text-[11px] leading-relaxed">
-                    Jl. Bojong Koneng, Rancamanyar, Kec. Baleendah, Kabupaten
-                    Bandung, Jawa Barat 40375
-                  </p>
-                </div>
-              </a>
-
-              {/* CABANG GADING TUTUKA - DENGAN LINK GOOGLE MAPS ASLI */}
-              <a
-                href="https://www.google.com/maps/search/?api=1&query=Sate+Sadjodo+Gading+Tutuka+Soreang" 
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-[#0a0a0a] border border-white/5 p-5 rounded-2xl flex items-start gap-4 hover:bg-white/5 hover:border-red-500/30 transition-all duration-300 group cursor-pointer shadow-lg"
-              >
-                <div className="w-10 h-10 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-red-500 group-hover:text-white transition-all shrink-0">
-                  <MapPin size={20} />
-                </div>
-                <div>
-                  <h3 className="text-white font-bold text-base mb-1 group-hover:text-red-400 transition-colors">
-                    Cabang Gading Tutuka
-                  </h3>
-                  <p className="text-gray-400 text-[11px] leading-relaxed">
-                    XGHR+3Q7, Jl. Raya Gading Tutuka, Cingcin, Kec. Soreang,
-                    Kabupaten Bandung, Jawa Barat
-                  </p>
-                </div>
-              </a>
+          <a
+            href="https://www.google.com/maps/search/?api=1&query=Sate+Sadjodo+Gading+Tutuka+Soreang"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-[#0a0a0a] border border-white/5 p-6 rounded-2xl flex items-start gap-4 hover:bg-white/5 hover:border-red-500/30 transition-all duration-300 group cursor-pointer shadow-lg"
+          >
+            <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-red-500 group-hover:text-white transition-all shrink-0">
+              <MapPin size={24} />
             </div>
-
-            {/* MINI CARDS UNTUK IG & WA */}
-            <div className="grid grid-cols-2 gap-4 mt-2">
-              <a 
-                href="https://wa.me/6281234567890" 
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-gradient-to-br from-[#C1121F]/10 to-[#0a0a0a] border border-[#C1121F]/20 p-4 rounded-2xl flex items-center gap-3 hover:border-[#C1121F]/50 transition-all shadow-lg group cursor-pointer"
-              >
-                <div className="w-10 h-10 bg-[#C1121F] rounded-xl flex items-center justify-center text-white group-hover:scale-110 transition-transform">
-                  <PhoneCall size={18} />
-                </div>
-                <div>
-                  <p className="text-gray-400 text-[9px] uppercase tracking-widest font-bold mb-0.5">Reservasi / WA</p>
-                  <h3 className="text-sm font-black text-white group-hover:text-red-400 transition-colors">Hubungi</h3>
-                </div>
-              </a>
-
-              <a
-                href="https://www.instagram.com/sate.sadjodo?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-gradient-to-br from-purple-600/10 to-pink-600/5 border border-purple-500/20 p-4 rounded-2xl flex items-center gap-3 hover:border-purple-500/50 transition-all shadow-lg group cursor-pointer"
-              >
-                <div className="w-10 h-10 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 rounded-xl flex items-center justify-center text-white group-hover:scale-110 group-hover:rotate-12 transition-transform">
-                  <Instagram size={20} />
-                </div>
-                <div>
-                  <p className="text-gray-400 text-[9px] uppercase tracking-widest font-bold mb-0.5">Instagram</p>
-                  <h3 className="text-sm font-black text-white group-hover:text-pink-300 transition-colors">@sate.sadjodo</h3>
-                </div>
-              </a>
+            <div>
+              <h3 className="text-white font-bold text-base mb-1 group-hover:text-red-400 transition-colors">
+                Cabang Gading Tutuka
+              </h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                XGHR+3Q7, Jl. Raya Gading Tutuka, Cingcin, Kec. Soreang,
+                Kabupaten Bandung, Jawa Barat
+              </p>
             </div>
+          </a>
         </div>
 
-        {/* KOLOM KANAN: GAMBAR RESTORAN / VIBE */}
-        <div className="lg:col-span-3 bg-[#0a0a0a] rounded-[3rem] overflow-hidden border border-white/5 relative h-[400px] lg:h-full min-h-[400px] shadow-2xl group">
-           <img 
-              src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=1200" 
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
-              alt="Suasana Sate Sadjodo" 
-           />
-           <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-black/40 to-transparent pointer-events-none" />
-           <div className="absolute bottom-8 left-8 right-8 z-10">
-              <div className="flex items-center gap-2 mb-3">
-                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                 <span className="text-emerald-500 text-xs font-bold tracking-widest uppercase">Buka Setiap Hari</span>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <a
+              href="https://wa.me/6281234567890"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-gradient-to-br from-[#C1121F]/10 to-[#0a0a0a] border border-[#C1121F]/20 p-5 rounded-2xl flex items-center gap-3 hover:border-[#C1121F]/50 transition-all shadow-lg group cursor-pointer"
+            >
+              <div className="w-12 h-12 bg-[#C1121F] rounded-xl flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                <PhoneCall size={20} />
               </div>
-              <h3 className="text-3xl font-black text-white mb-2 drop-shadow-lg">Suasana Hangat & Nyaman</h3>
-              <p className="text-gray-200 text-sm max-w-md drop-shadow-md leading-relaxed">Tempat yang pas untuk bersantai, berbincang, dan menikmati hidangan sate taichan otentik bersama keluarga atau teman terdekat Anda.</p>
-           </div>
+              <div>
+                <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mb-0.5">
+                  Reservasi / WA
+                </p>
+                <h3 className="text-sm font-black text-white group-hover:text-red-400 transition-colors">
+                  Hubungi
+                </h3>
+              </div>
+            </a>
+
+            <a
+              href="https://www.instagram.com/sate.sadjodo?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-gradient-to-br from-purple-600/10 to-pink-600/5 border border-purple-500/20 p-5 rounded-2xl flex items-center gap-3 hover:border-purple-500/50 transition-all shadow-lg group cursor-pointer"
+            >
+              <div className="w-12 h-12 bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 rounded-xl flex items-center justify-center text-white group-hover:scale-110 group-hover:rotate-12 transition-transform">
+                <Instagram size={20} />
+              </div>
+              <div>
+                <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mb-0.5">
+                  Instagram
+                </p>
+                <h3 className="text-sm font-black text-white group-hover:text-pink-300 transition-colors">
+                  @sate.sadjodo
+                </h3>
+              </div>
+            </a>
+          </div>
+
+          <div className="lg:col-span-3 bg-[#0a0a0a] rounded-[3rem] overflow-hidden border border-white/5 relative h-[400px] lg:h-full min-h-[400px] shadow-2xl group">
+            <img
+              src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=1200"
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+              alt="Suasana Sate Sadjodo"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-black/40 to-transparent pointer-events-none" />
+            <div className="absolute bottom-8 left-8 right-8 z-10">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-emerald-500 text-xs font-bold tracking-widest uppercase">
+                  Buka Setiap Hari
+                </span>
+              </div>
+              <h3 className="text-3xl font-black text-white mb-2 drop-shadow-lg">
+                Suasana Hangat & Nyaman
+              </h3>
+              <p className="text-gray-200 text-sm max-w-md drop-shadow-md leading-relaxed">
+                Tempat yang pas untuk bersantai, berbincang, dan menikmati
+                hidangan sate taichan otentik bersama keluarga atau teman
+                terdekat Anda.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -653,90 +815,89 @@ export default function CustomerOrderPage() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-16 pb-24"
     >
-      {/* HERO ABOUT (MENGGUNAKAN GAMBAR LOKAL) */}
-      <div className="text-center max-w-3xl mx-auto pt-10 px-4 relative overflow-hidden rounded-[3rem]">
-        {/* FILE LOKAL: /taichan-sate.png */}
-        <img src="/taichan-sate.png" className="absolute inset-0 w-full h-full object-cover opacity-20 blur-sm scale-110" alt=""/>
-        <div className="relative z-10 p-10">
-          <span className="text-[#C1121F] font-bold tracking-[0.3em] uppercase text-xs mb-4 block">Cerita Kami</span>
-          <h2 className="text-5xl md:text-6xl font-black text-white mb-6 tracking-tighter">
-            Rasa <span className="text-[#C1121F]">Sadjodo.</span>
-          </h2>
-          <p className="text-gray-400 text-lg leading-relaxed max-w-2xl mx-auto">
-            Berawal dari kecintaan pada kuliner pedas gurih, kami meracik resep
-            taichan yang tidak hanya membakar lidah, tetapi juga meninggalkan
-            kenangan. Setiap tusuk adalah dedikasi kami untuk kualitas dan kepuasan pelanggan.
-          </p>
-        </div>
+      <div className="text-center space-y-3">
+        <h2 className="text-3xl md:text-4xl font-black text-white">
+          Cerita Kami Rasa Sadjodo
+        </h2>
+        <p className="text-gray-400 text-sm md:text-base max-w-2xl mx-auto">
+          Berawal dari kecintaan pada kuliner pedas gurih, kami meracik resep
+          taichan yang tidak hanya membakar lidah, tetapi juga meninggalkan
+          kenangan. Setiap tusuk adalah dedikasi kami untuk kualitas dan
+          kepuasan pelanggan.
+        </p>
       </div>
 
-      {/* SECTION 1: PEMBAKARAN (MENGGUNAKAN GAMBAR LOKAL: taichan-sate.png) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center px-4 md:px-0">
         <div className="order-2 lg:order-1 space-y-6 lg:pr-8">
           <div className="w-16 h-16 bg-red-500/10 rounded-3xl flex items-center justify-center mb-2 border border-red-500/20 shadow-[0_0_15px_rgba(193,18,31,0.3)]">
-             <Flame className="text-[#C1121F]" size={32} />
+            <Flame className="text-[#C1121F]" size={32} />
           </div>
           <h3 className="text-3xl md:text-4xl font-black text-white leading-tight">
-             Seni Memanggang <br/> <span className="text-[#C1121F]">Arang Batok</span>
+            Seni Memanggang <br />
+            <span className="text-[#C1121F]">Arang Batok</span>
           </h3>
           <p className="text-gray-400 leading-relaxed text-base">
-             Kami menggunakan 100% daging ayam segar pilihan yang dimarinasi
-             dengan bumbu rempah rahasia. Proses pemanggangan menggunakan arang 
-             batok kelapa khusus memastikan tingkat kematangan sempurna, <span className="text-white italic">juicy</span> 
-             di dalam, dengan aroma <span className="text-white font-bold">smoky</span> yang khas Sate Sadjodo.
+            Kami menggunakan 100% daging ayam segar pilihan yang dimarinasi
+            dengan bumbu rempah rahasia. Proses pemanggangan menggunakan arang
+            batok kelapa khusus memastikan tingkat kematangan sempurna,{" "}
+            <span className="text-white italic">juicy</span> di dalam, dengan
+            aroma <span className="text-white font-bold">smoky</span> yang khas
+            Sate Sadjodo.
           </p>
         </div>
         <div className="relative rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] group h-[400px] order-1 lg:order-2 border border-white/5">
-          {/* FILE LOKAL: /taichan-sate.png */}
-          <img 
-            src="/taichan-sate.png" 
-            alt="Grilling Sate Sadjodo Taichan" 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+          <img
+            src="/taichan-sate.png"
+            alt="Grilling Sate Sadjodo Taichan"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           />
-          <div className="absolute inset-0 bg-gradient-to-tr from-[#050505]/60 via-transparent to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-tr from-[#050505]/60 via-transparent to-transparent" />
         </div>
       </div>
 
-      {/* SECTION 2: SAMBAL (MENGGUNAKAN GAMBAR LOKAL: taichan-sambal.png) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center px-4 md:px-0">
         <div className="relative rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] group h-[400px] border border-white/5">
-          {/* FILE LOKAL: /taichan-sambal.png */}
-          <img 
-            src="/taichan-sambal.png" 
-            alt="Sambal Rawit Merah Sadjodo" 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+          <img
+            src="/taichan-sambal.png"
+            alt="Sambal Rawit Merah Sadjodo"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           />
-          <div className="absolute inset-0 bg-gradient-to-tl from-[#C1121F]/40 via-transparent to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-tl from-[#C1121F]/40 via-transparent to-transparent" />
         </div>
         <div className="space-y-6 lg:pl-8">
           <div className="w-16 h-16 bg-red-500/10 rounded-3xl flex items-center justify-center mb-2 border border-red-500/20 shadow-[0_0_15px_rgba(193,18,31,0.3)]">
-             <HeartPulse className="text-[#C1121F]" size={32} />
+            <HeartPulse className="text-[#C1121F]" size={32} />
           </div>
           <h3 className="text-3xl md:text-4xl font-black text-white leading-tight">
-             Sengatan Asli <br/> <span className="text-[#C1121F]">Tanpa Pengawet</span>
+            Sengatan Asli <br />
+            <span className="text-[#C1121F]">Tanpa Pengawet</span>
           </h3>
           <p className="text-gray-400 leading-relaxed text-base">
-             Sambal andalan kami diulek segar setiap hari. Tanpa saus kemasan,
-             dan tanpa bubuk cabai buatan. Hanya cabai rawit merah segar pilihan terbaik yang disiapkan
-             untuk membakar lidah Anda dengan sensasi pedas gurih yang bikin nagih.
+            Sambal andalan kami diulek segar setiap hari. Tanpa saus kemasan,
+            dan tanpa bubuk cabai buatan. Hanya cabai rawit merah segar pilihan
+            terbaik yang disiapkan untuk membakar lidah Anda dengan sensasi
+            pedas gurih yang bikin nagih.
           </p>
         </div>
       </div>
 
-      {/* AWARDS / STATS */}
       <div className="bg-gradient-to-r from-[#0a0a0a] to-[#111] border border-white/5 rounded-[3rem] p-10 flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl relative overflow-hidden">
-        <div className="absolute -left-10 w-40 h-40 bg-yellow-500/10 blur-[50px]"></div>
+        <div className="absolute -left-10 w-40 h-40 bg-yellow-500/10 blur-[50px]" />
         <div className="flex items-center gap-6 relative z-10">
           <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-600 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(234,179,8,0.4)]">
             <Award className="text-white" size={40} />
           </div>
           <div>
             <h4 className="text-2xl font-black text-white">Rasa Premium</h4>
-            <p className="text-gray-400 text-sm">Pilihan Utama Pencinta Kuliner Taichan</p>
+            <p className="text-gray-400 text-sm">
+              Pilihan Utama Pencinta Kuliner Taichan
+            </p>
           </div>
         </div>
         <div className="text-center md:text-right relative z-10">
-          <p className="text-4xl font-black text-white mb-1">Top <span className="text-[#C1121F]">Quality</span></p>
+          <p className="text-4xl font-black text-white mb-1">
+            Top <span className="text-[#C1121F]">Quality</span>
+          </p>
           <p className="text-gray-500 text-xs uppercase tracking-widest font-bold">
             Bahan Baku & Pelayanan
           </p>
@@ -746,22 +907,15 @@ export default function CustomerOrderPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] font-sans text-white selection:bg-[#C1121F]/30 flex relative">
+    <div className="min-h-screen bg-[#050505] text-white font-sans flex overflow-hidden">
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside className="hidden lg:flex w-28 bg-[#0a0a0a]/80 backdrop-blur-3xl border-r border-white/5 flex-col items-center py-10 z-40 fixed h-full shadow-2xl">
-        <div className="mb-12 flex flex-col items-center gap-2 group mt-2">
-          {/* UKURAN LOGO DIPERBESAR */}
-          <div className="relative w-20 h-20 flex items-center justify-center">
-            <div className="absolute inset-0 bg-red-600/30 rounded-full blur-[20px] group-hover:bg-red-600/50 transition-all duration-500"></div>
-            <img
-              src="/logo-sadjodo.png"
-              alt="Logo Sate Sadjodo"
-              className="relative w-full h-full object-contain opacity-100 drop-shadow-2xl transition-transform duration-500 group-hover:scale-110"
-            />
-          </div>
+      <aside className="hidden lg:flex flex-col w-24 bg-[#0a0a0a]/80 backdrop-blur-xl border-r border-white/5 py-6 items-center gap-6 fixed h-full z-40">
+        {/* LOGO SIDEBAR */}
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#C1121F] to-red-800 flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(193,18,31,0.4)]">
+          <ChefHat size={28} className="text-white" />
         </div>
 
-        <div className="flex flex-col gap-6 w-full px-4">
+        <div className="flex flex-col gap-4 flex-1">
           <SidebarItem
             icon={Home}
             label="Home"
@@ -820,47 +974,39 @@ export default function CustomerOrderPage() {
       </div>
 
       {/* --- MAIN CONTENT AREA --- */}
-      <main className="flex-1 lg:ml-28 w-full max-h-screen overflow-y-auto relative scroll-smooth">
-        {/* Header Bar */}
-        <header className="sticky top-0 z-30 bg-gradient-to-b from-[#050505] via-[#050505]/90 to-transparent pt-8 pb-10 px-6 lg:px-12 flex justify-between items-center pointer-events-none">
-          <div className="pointer-events-auto flex items-center gap-3">
-             {/* Text Logo For Mobile */}
-             <span className="lg:hidden text-xl font-black tracking-tight text-white flex items-center gap-2">
-                SATE<span className="text-[#C1121F]">SADJODO</span>
-             </span>
+      <main className="flex-1 w-full h-screen overflow-hidden relative lg:ml-24">
+        {/* --- BAWAH KIRI CART BUTTON (HANYA DI MENU) --- */}
+        {activeTab === "Menu" && (
+          <div className="absolute bottom-28 left-6 md:bottom-8 md:left-8 z-50">
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="relative flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full transition-all duration-300 bg-[#C1121F] hover:bg-red-700 text-white shadow-[0_10px_30px_rgba(193,18,31,0.5)] border border-red-400/30"
+              title="Keranjang"
+            >
+              <ShoppingCart size={24} />
+              {totalItems > 0 && (
+                <span className="absolute -top-2 -right-2 w-6 h-6 bg-white text-[#C1121F] text-xs font-black rounded-full flex items-center justify-center border-2 border-[#050505]">
+                  {totalItems}
+                </span>
+              )}
+            </button>
           </div>
-          
-          {/* KERANJANG HANYA MUNCUL DI TAB MENU */}
-          <div className="pointer-events-auto flex items-center gap-4">
-            {activeTab === "Menu" && (
-              <button
-                onClick={() => setIsCartOpen(true)}
-                className="relative flex-shrink-0 w-14 h-14 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 hover:border-[#C1121F]/50 rounded-full text-white transition-all group shadow-lg"
-              >
-                <ShoppingCart
-                  size={22}
-                  className="mx-auto group-hover:scale-110 transition-transform"
-                />
-                {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-[#C1121F] text-white text-[11px] font-black w-6 h-6 flex items-center justify-center rounded-full border-2 border-[#050505] shadow-lg">
-                    {totalItems}
-                  </span>
-                )}
-              </button>
-            )}
-          </div>
-        </header>
+        )}
 
-        {/* Dynamic Content */}
-        <div className="px-6 lg:px-12 pb-32">
+        {/* Dynamic Content - Full Screen Slider */}
+        <div className="w-full h-full">
           {activeTab === "Home" && renderHome()}
-          {activeTab === "Menu" && renderMenu()}
-          {activeTab === "Location" && renderLocation()}
-          {activeTab === "About" && renderAbout()}
+          {activeTab !== "Home" && (
+            <div className="h-full overflow-y-auto px-6 lg:px-12 py-8 pb-32">
+              {activeTab === "Menu" && renderMenu()}
+              {activeTab === "Location" && renderLocation()}
+              {activeTab === "About" && renderAbout()}
+            </div>
+          )}
         </div>
       </main>
 
-      {/* --- MODAL ADD TO CART (POP UP PLUS MENU) --- */}
+      {/* --- MODAL ADD TO CART --- */}
       <AnimatePresence>
         {selectedMenuToAdd && (
           <>
@@ -880,13 +1026,11 @@ export default function CustomerOrderPage() {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md bg-[#0a0a0a] border border-white/10 rounded-[3rem] p-8 z-[70] shadow-2xl flex flex-col items-center text-center"
             >
+              {/* UPDATE FOTO TAMBAH KE KERANJANG - PRIORITAS DATABASE */}
               <img
-                src={
-                  selectedMenuToAdd.image ||
-                  "https://images.unsplash.com/photo-1628294895950-9805252327bc?q=80&w=1000"
-                }
+                src={getMenuImage(selectedMenuToAdd)}
                 className="w-32 h-32 rounded-full object-cover border-4 border-white/10 mb-6 shadow-xl"
-                alt=""
+                alt={selectedMenuToAdd.nama}
               />
               <h3 className="text-2xl font-black text-white mb-2">
                 {selectedMenuToAdd.nama}
@@ -907,11 +1051,11 @@ export default function CustomerOrderPage() {
                 </span>
                 <button
                   onClick={() => {
-                     if (addQty >= selectedMenuToAdd.stok) {
-                         alert("Mencapai batas stok!");
-                         return;
-                     }
-                     setAddQty(addQty + 1);
+                    if (addQty >= selectedMenuToAdd.stok) {
+                      alert("Mencapai batas stok!");
+                      return;
+                    }
+                    setAddQty(addQty + 1);
                   }}
                   className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all text-white"
                 >
@@ -929,12 +1073,14 @@ export default function CustomerOrderPage() {
                 >
                   Batal
                 </button>
-                
+
                 <button
                   onClick={confirmAddToCart}
                   className="flex-[2] bg-gradient-to-r from-[#C1121F] to-red-700 hover:from-red-600 hover:to-red-800 text-white py-4 rounded-full font-black uppercase tracking-widest text-sm transition-all shadow-[0_10px_30px_rgba(193,18,31,0.3)] active:scale-95 flex items-center justify-center gap-2"
                 >
-                  Tambahkan <span className="opacity-50 font-normal">|</span> Rp {(selectedMenuToAdd.harga * addQty).toLocaleString("id-ID")}
+                  Tambahkan <span className="opacity-50 font-normal">|</span>{" "}
+                  Rp{" "}
+                  {(selectedMenuToAdd.harga * addQty).toLocaleString("id-ID")}
                 </button>
               </div>
             </motion.div>
@@ -1009,8 +1155,9 @@ export default function CustomerOrderPage() {
                         key={item.id}
                         className="flex gap-4 p-4 rounded-3xl bg-[#0a0a0a] border border-white/5"
                       >
+                        {/* UPDATE FOTO KERANJANG - PRIORITAS DATABASE */}
                         <img
-                          src={item.image}
+                          src={getMenuImage(item)}
                           className="w-20 h-20 rounded-2xl object-cover"
                           alt={item.nama}
                         />
@@ -1065,7 +1212,8 @@ export default function CustomerOrderPage() {
                       />
                       <p className="text-sm text-red-200">
                         Isi nama pemesan dan nomor meja Anda dengan benar agar
-                        kami mudah mengantar pesanan. Meja yang redup merah menandakan sedang terisi.
+                        kami mudah mengantar pesanan. Meja yang redup merah
+                        menandakan sedang terisi.
                       </p>
                     </div>
                     <div>
@@ -1086,26 +1234,28 @@ export default function CustomerOrderPage() {
                       </label>
                       <div className="grid grid-cols-4 gap-3">
                         {AVAILABLE_TABLES.map((num) => {
-                           const isOccupied = occupiedTables.includes(num);
-                           return (
-                             <button
-                               key={num}
-                               disabled={isOccupied}
-                               onClick={() => !isOccupied && setTableNumber(num)}
-                               className={`py-3 rounded-2xl font-black transition-all flex flex-col items-center justify-center ${
-                                 tableNumber === num
-                                   ? "bg-white text-black shadow-[0_5px_20px_rgba(255,255,255,0.2)] scale-105"
-                                   : isOccupied
-                                   ? "bg-[#C1121F]/10 text-red-500/40 border border-red-900/20 cursor-not-allowed"
-                                   : "bg-[#0a0a0a] border border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-                               }`}
-                             >
-                               <span>{num}</span>
-                               {isOccupied && (
-                                  <span className="text-[9px] font-medium leading-tight mt-0.5">Terisi</span>
-                               )}
-                             </button>
-                           );
+                          const isOccupied = occupiedTables.includes(num);
+                          return (
+                            <button
+                              key={num}
+                              disabled={isOccupied}
+                              onClick={() => !isOccupied && setTableNumber(num)}
+                              className={`py-3 rounded-2xl font-black transition-all flex flex-col items-center justify-center ${
+                                tableNumber === num
+                                  ? "bg-white text-black shadow-[0_5px_20px_rgba(255,255,255,0.2)] scale-105"
+                                  : isOccupied
+                                  ? "bg-[#C1121F]/10 text-red-500/40 border border-red-900/20 cursor-not-allowed"
+                                  : "bg-[#0a0a0a] border border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                              }`}
+                            >
+                              <span>{num}</span>
+                              {isOccupied && (
+                                <span className="text-[9px] font-medium leading-tight mt-0.5">
+                                  Terisi
+                                </span>
+                              )}
+                            </button>
+                          );
                         })}
                       </div>
                     </div>
@@ -1119,7 +1269,10 @@ export default function CustomerOrderPage() {
                     <div className="relative mb-8">
                       <div className="absolute inset-0 bg-[#C1121F] rounded-full blur-2xl animate-pulse opacity-20" />
                       <div className="w-24 h-24 bg-[#0a0a0a] border border-white/10 rounded-full flex items-center justify-center relative z-10">
-                        <Flame className="text-[#C1121F] animate-bounce" size={40} />
+                        <Flame
+                          className="text-[#C1121F] animate-bounce"
+                          size={40}
+                        />
                       </div>
                     </div>
                     <h3 className="text-2xl font-black text-white mb-3">
@@ -1129,7 +1282,10 @@ export default function CustomerOrderPage() {
                       Harap tunggu sebentar, sistem sedang mengirimkan pesanan
                       Anda ke dapur.
                     </p>
-                    <Loader2 className="animate-spin text-white opacity-50 mx-auto" size={24} />
+                    <Loader2
+                      className="animate-spin text-white opacity-50 mx-auto"
+                      size={24}
+                    />
                   </motion.div>
                 ) : (
                   <motion.div

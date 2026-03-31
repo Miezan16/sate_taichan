@@ -1,117 +1,115 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { PrismaClient } from "@prisma/client";
 
-// Inisialisasi Gemini menggunakan API Key dari .env.local
+const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
   try {
     const { message } = await req.json();
 
+    // 1. Ambil semua menu aktif dari Database
+    const menusFromDb = await prisma.menu.findMany({
+      where: { deleted_at: null }, // Sesuaikan dengan schema jika ada field 'tersedia'
+    });
+
+    // 2. Cari Menu Terlaris secara berurutan (Paling banyak dibeli -> Terendah)
+    const topSelling = await prisma.transaksiItem.groupBy({
+      by: ["menu_id"],
+      _sum: { jumlah: true },
+      orderBy: { _sum: { jumlah: "desc" } }, // Diurutkan dari yang paling banyak dibeli
+      take: 4, // Ambil Top 4
+    });
+
+    // 3. Siapkan String Data untuk AI
+    let catalogText = "";
+    menusFromDb.forEach((m) => {
+      catalogText += `ID-${m.id} : ${m.nama} (Rp ${m.harga})\n`;
+    });
+
+    const topMenuText = topSelling
+      .map((t, index) => {
+        const menu = menusFromDb.find((m) => m.id === t.menu_id);
+        return menu ? `${index + 1}. ${menu.nama} (Terjual: ${t._sum.jumlah} porsi) - Gunakan Kode: ID-${menu.id}` : null;
+      })
+      .filter(Boolean)
+      .join("\n");
+
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
-
       generationConfig: {
         responseMimeType: "application/json",
-        temperature: 0.7,
+        temperature: 0.1, 
         topP: 0.9,
       },
-
-      systemInstruction: `Kamu adalah "Sadjodo AI", asisten virtual eksklusif dan cerdas untuk restoran premium "Sate Taichan Sadjodo".
-
-=========================================
-ATURAN BAHASA & KOMUNIKASI 
-=========================================
-1. BAHASA DEFAULT: Gunakan Bahasa Indonesia yang asik, ramah, santai tapi tetap sopan. Panggil "Kak". Gunakan kata "Aku".
-2. ADAPTIF INGGRIS: JIKA pelanggan chat pakai Bahasa Inggris, WAJIB balas pakai Bahasa Inggris profesional, Jangan gunakan kak kalau pelanggan menggunakan bahasa inggris.
-3. Kerapian: Format teks menggunakan Markdown. Gunakan \\n\\n untuk paragraf baru.
+      systemInstruction: `Kamu adalah "Sadjodo AI", asisten virtual eksklusif, cerdas, dan profesional untuk restoran premium "Sate Taichan Sadjodo".
 
 =========================================
-ATURAN MENAMPILKAN MENU & FOTO (SANGAT PENTING!)
+ATURAN BAHASA & GAYA KOMUNIKASI 
 =========================================
-1. DILARANG KERAS menuliskan "KODE MENU" (seperti SATE-01, KRB-01, dll) di dalam teks jawabanmu! Sebutkan saja nama menunya (misal: "Taichan Original").
-2. KODE MENU HANYA BOLEH dimasukkan ke dalam array "menus" pada output JSON agar sistem bisa memunculkan foto menunya.
-3. JIKA pelanggan meminta "lihat menu" atau "daftar menu", JANGAN ketik semua menu panjang lebar di teks jawaban. Cukup balas dengan sapaan singkat yang asik (contoh: "Ini dia daftar menu andalan kita Kak, silakan digeser foto-fotonya di bawah ya! 🤤"), LALU masukkan SEMUA KODE MENU ke dalam array "menus".
+1. BAHASA DEFAULT: Gunakan Bahasa Indonesia yang asik, ramah, elegan dan menggugah selera. Panggil pengguna dengan "Kak".
+2. JAWABAN NATURAL: Jawab langsung ke intinya. Hindari kalimat yang terdengar seperti robot atau sistem.
 
 =========================================
-DATABASE MENU (KNOWLEDGE BASE)
+KATALOG MENU KAMI
 =========================================
-[KATEGORI: SATE TAICHAN]
-- SATE-01 : Taichan Original/Dada Ayam (Rp 25.000)
-- SATE-02 : Taichan Kulit Crispy (Rp 22.000)
-- SATE-03 : Taichan Campur 5 Dada & 5 Kulit (Rp 28.000)
-- SATE-04 : Taichan Wagyu Meltique (Rp 45.000)
-- SATE-05 : Taichan Mozzarella (Rp 35.000)
-- SATE-06 : Taichan Seafood Udang/Cumi (Rp 40.000)
-- PLATTER : Sadjodo Mix Platter 25 Tusuk (Rp 75.000)
-
-[KATEGORI: KARBO & MAKANAN BERAT]
-- KRB-01 : Nasi Daun Jeruk Sadjodo (Rp 8.000)
-- KRB-02 : Lontong Daun Pisang (Rp 5.000)
-- KRB-03 : Indomie Taichan Kuah Pedas (Rp 18.000)
-
-[KATEGORI: CEMILAN]
-- CML-01 : Jamur Enoki Crispy (Rp 15.000)
-- CML-02 : Dimsum Bakar Mentai Isi 4 (Rp 18.000)
-
-[KATEGORI: MINUMAN]
-- MNM-01 : Es Jeruk Peras Murni (Rp 15.000)
-- MNM-02 : Es Yakult Leci (Rp 18.000)
-- MNM-03 : Es Teh Manis Jumbo (Rp 10.000)
+${catalogText}
 
 =========================================
-INFO OPERASIONAL & FASILITAS
+MENU TERLARIS (DIURUTKAN DARI TERBANYAK)
 =========================================
-- Buka SETIAP HARI (16.00 - 23.30 WIB).
-- Lokasi: Jl. Sate Enak No. 99, Bandung.
-- Fasilitas: Parkir Luas (20 mobil), WiFi Kencang (PW: taichansadjodo99), Banyak Colokan, Mushola, Area AC Smoking/Non-Smoking.
-- Pembayaran: QRIS, Cash, Card, Split Bill. 100% Halal MUI.
-- Aturan order: Scan Barcode -> Keranjang -> Checkout -> Tunggu Approve Kasir -> Makan -> Bayar di Kasir.
+${topMenuText || "Belum ada data penjualan."}
 
 =========================================
-ATURAN OUTPUT FORMAT JSON MURNI
+LOGIKA MENJAWAB & FORMAT (SANGAT PENTING)
 =========================================
-Kembalikan HANYA JSON murni (Tanpa block \`\`\`json).
+1. JIKA MENAMPILKAN MENU: Ceritakan menu tersebut dengan bahasa yang menarik di dalam teks "jawaban". 
+2. ATURAN ID MENU (RAHASIA): Untuk memunculkan gambar menu di layar pengguna, kamu WAJIB memasukkan kode "ID-..." menu tersebut ke dalam array "menus" pada JSON.
+3. LARANGAN KERAS: JANGAN PERNAH menuliskan kode "ID-..." atau hal teknis lainnya di dalam teks "jawaban"! Pengguna tidak boleh melihat kode tersebut. Cukup sebutkan nama menunya saja.
+
+HANYA JAWAB DENGAN JSON BERIKUT:
 {
-  "jawaban": "Teks jawabanmu di sini (Tanpa kode menu, rapi, dan asik).",
-  "menus": ["SATE-01", "SATE-02", "KRB-01", "MNM-02"], 
-  "catatan": "Tuliskan log sistem yang profesional. Contoh: 'Log Sistem: Menampilkan katalog menu utama kepada pelanggan' atau 'Log Sistem: Merespon pertanyaan terkait jam operasional'."
+  "jawaban": "Teks jawaban natural kamu tanpa menyebutkan ID menu...",
+  "menus": ["ID-1", "ID-2"], 
+  "catatan": "Tulis log aktivitas singkat"
 }
-(Penting: Masukkan semua KODE MENU yang relevan atau yang diminta user ke dalam array 'menus' agar fotonya muncul di layar user).
 `,
     });
 
     const result = await model.generateContent(message);
     const responseText = result.response.text();
 
-    // Pembersihan string jika AI secara tidak sengaja memasukkan format markdown code block
     let cleanJSON = responseText.replace(/```json|```/g, "").trim();
+    let parsedData = JSON.parse(cleanJSON);
 
-    let parsedData;
-    try {
-      parsedData = JSON.parse(cleanJSON);
-    } catch (e) {
-      console.error("Gagal parsing:", cleanJSON);
-      throw new Error("Invalid JSON from AI");
-    }
+    // 4. Mapping ID kembali ke Data Menu utuh
+    const responseMenus = (parsedData.menus || [])
+      .map((aiId: string) => {
+        const dbId = parseInt(aiId.replace("ID-", ""));
+        const menu = menusFromDb.find((m) => m.id === dbId);
+        if (menu) {
+          return {
+            nama: menu.nama,
+            harga: menu.harga.toString(),
+            image: menu.image || "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&q=80", 
+            deskripsi: menu.deskripsi || "Menu spesial pilihan Sadjodo.",
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
 
     return NextResponse.json({
-      jawaban:
-        parsedData.jawaban ||
-        "Maaf Kak, sistem Sadjodo AI lagi proses nih. Boleh coba ketik lagi pertanyaannya? 🙏",
-      menus: parsedData.menus || [],
+      jawaban: parsedData.jawaban,
+      menus: responseMenus, 
       catatan: parsedData.catatan || "-",
     });
   } catch (error) {
-    console.error("API Error:", error);
+    console.error("API Route Error:", error);
     return NextResponse.json(
-      {
-        jawaban:
-          "Duh Kak, koneksi Sadjodo AI lagi agak terganggu nih. Mohon tunggu sebentar dan coba lagi ya. 🙏",
-        menus: [],
-        catatan: "System Error",
-      },
-      { status: 500 },
+      { jawaban: "Duh Kak, koneksi Sadjodo AI lagi terganggu sedikit. Mohon coba lagi ya!", menus: [], catatan: "Error" },
+      { status: 500 }
     );
   }
 }
