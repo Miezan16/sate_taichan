@@ -123,7 +123,9 @@ const COLUMNS = [
 
 export default function CashierDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"overview" | "board" | "history" | "stock">("overview");
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "board" | "history" | "stock"
+  >("overview");
   const [orders, setOrders] = useState<Order[]>([]);
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -153,7 +155,8 @@ export default function CashierDashboard() {
       : 0;
 
   const isCashValid =
-    paymentMethod !== "CASH" || Number(uangDiterima) >= (selectedOrder?.total_harga ?? 0);
+    paymentMethod !== "CASH" ||
+    Number(uangDiterima) >= (selectedOrder?.total_harga ?? 0);
 
   const fetchOrders = async () => {
     try {
@@ -182,7 +185,7 @@ export default function CashierDashboard() {
             stok: item.stok ?? 0,
             harga: item.harga,
             image: item.image,
-          }))
+          })),
         );
       }
     } catch (error) {
@@ -253,12 +256,12 @@ export default function CashierDashboard() {
   useEffect(() => {
     fetchOrders();
     fetchStock(); // Refresh stock/menu data to sync with admin deletions
-    
+
     const interval = setInterval(() => {
       fetchOrders();
       fetchStock(); // Auto refresh stock/menu every 5 seconds
     }, 5000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -267,27 +270,37 @@ export default function CashierDashboard() {
   const startOfToday = new Date(
     today.getFullYear(),
     today.getMonth(),
-    today.getDate()
+    today.getDate(),
   ).getTime();
   const startOfWeek = new Date(
     today.getFullYear(),
     today.getMonth(),
-    today.getDate() - today.getDay()
+    today.getDate() - today.getDay(),
   ).getTime();
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
+  const startOfMonth = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    1,
+  ).getTime();
 
   const todayCompleted = historyOrders.filter(
-    (o) => new Date(o.tanggal).getTime() >= startOfToday
+    (o) => new Date(o.tanggal).getTime() >= startOfToday,
   );
   const weekCompleted = historyOrders.filter(
-    (o) => new Date(o.tanggal).getTime() >= startOfWeek
+    (o) => new Date(o.tanggal).getTime() >= startOfWeek,
   );
   const monthCompleted = historyOrders.filter(
-    (o) => new Date(o.tanggal).getTime() >= startOfMonth
+    (o) => new Date(o.tanggal).getTime() >= startOfMonth,
   );
 
-  const revenueToday = todayCompleted.reduce((sum, o) => sum + o.total_harga, 0);
-  const revenueMonth = monthCompleted.reduce((sum, o) => sum + o.total_harga, 0);
+  const revenueToday = todayCompleted.reduce(
+    (sum, o) => sum + o.total_harga,
+    0,
+  );
+  const revenueMonth = monthCompleted.reduce(
+    (sum, o) => sum + o.total_harga,
+    0,
+  );
 
   const handleNextStatus = async (order: Order) => {
     let nextStatus: StatusPesanan | null = null;
@@ -303,7 +316,7 @@ export default function CashierDashboard() {
     if (!nextStatus) return;
 
     setOrders((prev) =>
-      prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o))
+      prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o)),
     );
     setLoadingOrderId(order.id);
 
@@ -317,7 +330,9 @@ export default function CashierDashboard() {
       await fetchOrders();
     } catch (err) {
       setOrders((prev) =>
-        prev.map((o) => (o.id === order.id ? { ...o, status: order.status } : o))
+        prev.map((o) =>
+          o.id === order.id ? { ...o, status: order.status } : o,
+        ),
       );
     } finally {
       setLoadingOrderId(null);
@@ -327,7 +342,9 @@ export default function CashierDashboard() {
   const handleFinalSubmit = async () => {
     if (!selectedOrder) return;
     const uangBayarVal =
-      paymentMethod === "CASH" ? Number(uangDiterima) : selectedOrder.total_harga;
+      paymentMethod === "CASH"
+        ? Number(uangDiterima)
+        : selectedOrder.total_harga;
     const kembalianVal = paymentMethod === "CASH" ? kembalian : 0;
 
     try {
@@ -345,17 +362,17 @@ export default function CashierDashboard() {
       });
       if (res.ok) {
         setSelectedOrder((prev) =>
-  prev
-    ? {
-        ...prev,
-        kasir_nama: cashierName,
-        // Tambahkan "as any" di sini untuk membungkam error TypeScript
-        metode_pembayaran: paymentMethod as any,
-        uang_bayar: uangBayarVal,
-        kembalian: kembalianVal,
-      }
-    : null
-);
+          prev
+            ? {
+                ...prev,
+                kasir_nama: cashierName,
+                // Tambahkan "as any" di sini untuk membungkam error TypeScript
+                metode_pembayaran: paymentMethod as any,
+                uang_bayar: uangBayarVal,
+                kembalian: kembalianVal,
+              }
+            : null,
+        );
         setShowReceipt(true);
         await fetchOrders();
         // --- UPDATE STOCK SETELAH PEMBAYARAN BERHASIL ---
@@ -407,7 +424,7 @@ export default function CashierDashboard() {
            <td class="center">${h.metode_pembayaran}</td>
            <td class="right">Rp ${h.total_harga.toLocaleString("id-ID")}</td>
          </tr>
-      `
+      `,
       )
       .join("");
 
@@ -473,7 +490,8 @@ export default function CashierDashboard() {
     if (!selectedOrder) return;
     const printWindow = window.open("", "_blank", "width=400,height=600");
     if (!printWindow) return alert("Izinkan popup untuk mencetak struk");
-    const activeCabang = branches.find((b) => b.id === selectedCabangId) || branches[0];
+    const activeCabang =
+      branches.find((b) => b.id === selectedCabangId) || branches[0];
     const dateStr = new Date(selectedOrder.tanggal).toLocaleString("id-ID");
 
     const itemsHtml = selectedOrder.items
@@ -486,7 +504,7 @@ export default function CashierDashboard() {
              <span>${(item.jumlah * item.harga_satuan).toLocaleString("id-ID")}</span>
            </div>
          </div>
-      `
+      `,
       )
       .join("");
 
@@ -623,14 +641,21 @@ export default function CashierDashboard() {
           <div
             className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl ${col.bg} border ${col.border} ${col.shadow}`}
           >
-            <span className="text-[10px] text-gray-400 font-medium -mb-1">Meja</span>
-            <span className={`text-lg font-black ${col.text}`}>{order.nomor_meja}</span>
+            <span className="text-[10px] text-gray-400 font-medium -mb-1">
+              Meja
+            </span>
+            <span className={`text-lg font-black ${col.text}`}>
+              {order.nomor_meja}
+            </span>
           </div>
         </div>
 
         <div className="space-y-2 mb-4 relative z-10">
           {order.items?.slice(0, 3).map((item) => (
-            <div key={item.id} className="flex justify-between items-start text-xs">
+            <div
+              key={item.id}
+              className="flex justify-between items-start text-xs"
+            >
               <div className="flex gap-2">
                 <span className={`font-bold ${col.text}`}>{item.jumlah}x</span>
                 <span className="text-gray-300 leading-tight pr-2">
@@ -700,10 +725,10 @@ export default function CashierDashboard() {
           <div className="relative w-14 h-14 flex items-center justify-center">
             {/* Glow effect di belakang logo agar lebih menyatu dengan background gelap */}
             <div className="absolute inset-0 bg-red-600/20 rounded-full blur-[15px] group-hover:bg-red-600/40 transition-all duration-500"></div>
-            
-            <img 
-              src="/logo-sadjodo.png" 
-              alt="Logo Sate Sadjodo" 
+
+            <img
+              src="/logo-sadjodo.png"
+              alt="Logo Sate Sadjodo"
               className="relative w-full h-full object-contain opacity-90 drop-shadow-2xl transition-transform duration-500 group-hover:scale-105"
             />
           </div>
@@ -782,7 +807,10 @@ export default function CashierDashboard() {
         <header className="px-8 py-6 flex justify-between items-center z-10 border-b border-white/5 bg-black/20 backdrop-blur-sm">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-              SATE <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600">SADJODO</span>
+              SATE{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600">
+                SADJODO
+              </span>
             </h1>
             <p className="text-gray-400 font-medium text-[11px] mt-1 tracking-wide flex items-center gap-2">
               <span className="relative flex h-2 w-2">
@@ -833,7 +861,9 @@ export default function CashierDashboard() {
                   </h3>
                   <p className="text-4xl font-black text-white">
                     {todayCompleted.length}{" "}
-                    <span className="text-sm font-medium text-gray-500">orang</span>
+                    <span className="text-sm font-medium text-gray-500">
+                      orang
+                    </span>
                   </p>
                 </div>
 
@@ -850,7 +880,9 @@ export default function CashierDashboard() {
                   </h3>
                   <p className="text-4xl font-black text-white">
                     {weekCompleted.length}{" "}
-                    <span className="text-sm font-medium text-gray-500">orang</span>
+                    <span className="text-sm font-medium text-gray-500">
+                      orang
+                    </span>
                   </p>
                 </div>
 
@@ -867,7 +899,9 @@ export default function CashierDashboard() {
                   </h3>
                   <p className="text-4xl font-black text-white">
                     {monthCompleted.length}{" "}
-                    <span className="text-sm font-medium text-gray-500">orang</span>
+                    <span className="text-sm font-medium text-gray-500">
+                      orang
+                    </span>
                   </p>
                 </div>
 
@@ -932,7 +966,11 @@ export default function CashierDashboard() {
                           </motion.div>
                         ) : (
                           colOrders.map((o) => (
-                            <OrderCard key={`order-${o.id}`} order={o} col={col} />
+                            <OrderCard
+                              key={`order-${o.id}`}
+                              order={o}
+                              col={col}
+                            />
                           ))
                         )}
                       </AnimatePresence>
@@ -950,7 +988,8 @@ export default function CashierDashboard() {
               <div className="px-6 py-4 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/[0.02]">
                 <div>
                   <h2 className="font-bold text-lg text-white flex items-center gap-2">
-                    <Package className="text-cyan-400" size={20} /> Manajemen Stok
+                    <Package className="text-cyan-400" size={20} /> Manajemen
+                    Stok
                   </h2>
                   <p className="text-gray-400 text-[11px] mt-0.5">
                     Pantau sisa bahan dan menu secara real-time
@@ -1002,7 +1041,10 @@ export default function CashierDashboard() {
               <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
                 {isLoadingStock ? (
                   <div className="flex flex-col items-center justify-center h-full">
-                    <Loader2 className="animate-spin text-cyan-400 mb-4" size={32} />
+                    <Loader2
+                      className="animate-spin text-cyan-400 mb-4"
+                      size={32}
+                    />
                     <p className="text-gray-400 text-xs">Memuat data stok...</p>
                   </div>
                 ) : filteredStockItems.length === 0 ? (
@@ -1014,7 +1056,9 @@ export default function CashierDashboard() {
                   <table className="w-full text-left text-sm">
                     <thead className="bg-black/60 text-gray-400 text-[10px] uppercase sticky top-0 z-10 backdrop-blur-md border-b border-white/10">
                       <tr>
-                        <th className="p-4 font-bold tracking-wider">Menu Item</th>
+                        <th className="p-4 font-bold tracking-wider">
+                          Menu Item
+                        </th>
                         <th className="p-4 font-bold tracking-wider text-center">
                           Kategori
                         </th>
@@ -1046,7 +1090,10 @@ export default function CashierDashboard() {
                                   />
                                 ) : (
                                   <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
-                                    <Utensils size={16} className="text-gray-500" />
+                                    <Utensils
+                                      size={16}
+                                      className="text-gray-500"
+                                    />
                                   </div>
                                 )}
                                 <div>
@@ -1070,8 +1117,8 @@ export default function CashierDashboard() {
                                   isOutOfStock
                                     ? "text-red-500"
                                     : isLowStock
-                                    ? "text-amber-400"
-                                    : "text-emerald-400"
+                                      ? "text-amber-400"
+                                      : "text-emerald-400"
                                 }`}
                               >
                                 {item.stok}
@@ -1123,8 +1170,12 @@ export default function CashierDashboard() {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-black/40 text-gray-400 text-[10px] uppercase sticky top-0 z-10 backdrop-blur-md border-b border-white/10">
                     <tr>
-                      <th className="p-5 font-bold tracking-wider">ID / Waktu</th>
-                      <th className="p-5 font-bold tracking-wider">Pelanggan</th>
+                      <th className="p-5 font-bold tracking-wider">
+                        ID / Waktu
+                      </th>
+                      <th className="p-5 font-bold tracking-wider">
+                        Pelanggan
+                      </th>
                       <th className="p-5 font-bold tracking-wider text-center">
                         Meja
                       </th>
@@ -1136,7 +1187,10 @@ export default function CashierDashboard() {
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {historyOrders.map((h) => (
-                      <tr key={h.id} className="hover:bg-white/5 transition-colors">
+                      <tr
+                        key={h.id}
+                        className="hover:bg-white/5 transition-colors"
+                      >
                         <td className="p-5">
                           <div className="text-cyan-400 font-bold text-xs mb-1">
                             #{h.id}
@@ -1227,13 +1281,16 @@ export default function CashierDashboard() {
                             {item.menu.nama}
                           </span>
                           <span className="font-bold text-white">
-                            Rp{(item.jumlah * item.harga_satuan).toLocaleString()}
+                            Rp
+                            {(item.jumlah * item.harga_satuan).toLocaleString()}
                           </span>
                         </div>
                       ))}
                     </div>
                     <div className="pt-6 border-t border-white/10 mt-4">
-                      <p className="text-xs text-gray-400 mb-1">Total Tagihan</p>
+                      <p className="text-xs text-gray-400 mb-1">
+                        Total Tagihan
+                      </p>
                       <p className="text-3xl font-black text-white">
                         Rp {selectedOrder.total_harga.toLocaleString()}
                       </p>
@@ -1295,8 +1352,8 @@ export default function CashierDashboard() {
                               uangDiterima && !isCashValid
                                 ? "bg-red-500/10 border-red-500/30"
                                 : uangDiterima
-                                ? "bg-emerald-500/10 border-emerald-500/30"
-                                : "bg-white/5 border-white/10"
+                                  ? "bg-emerald-500/10 border-emerald-500/30"
+                                  : "bg-white/5 border-white/10"
                             }`}
                           >
                             <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">
@@ -1307,8 +1364,8 @@ export default function CashierDashboard() {
                                 uangDiterima && !isCashValid
                                   ? "text-red-400"
                                   : uangDiterima
-                                  ? "text-emerald-400"
-                                  : "text-gray-600"
+                                    ? "text-emerald-400"
+                                    : "text-gray-600"
                               }`}
                             >
                               {uangDiterima && !isCashValid
@@ -1415,13 +1472,19 @@ export default function CashierDashboard() {
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-400">Uang Diterima</span>
                           <span className="font-bold text-white">
-                            Rp {(selectedOrder.uang_bayar ?? 0).toLocaleString("id-ID")}
+                            Rp{" "}
+                            {(selectedOrder.uang_bayar ?? 0).toLocaleString(
+                              "id-ID",
+                            )}
                           </span>
                         </div>
                         <div className="flex justify-between text-sm pt-1 border-t border-white/10">
                           <span className="text-gray-400">Kembalian</span>
                           <span className="font-black text-emerald-400 text-base">
-                            Rp {(selectedOrder.kembalian ?? 0).toLocaleString("id-ID")}
+                            Rp{" "}
+                            {(selectedOrder.kembalian ?? 0).toLocaleString(
+                              "id-ID",
+                            )}
                           </span>
                         </div>
                       </>
