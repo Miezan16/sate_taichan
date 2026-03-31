@@ -1179,28 +1179,14 @@ export default function AdminDashboard() {
   const fetchAll = useCallback(async () => {
     try {
       const branchQuery = selectedBranch ? `?cabang_id=${selectedBranch}` : "";
-      const [
-        menuRes,
-        userRes,
-        logRes,
-        branchRes,
-        meRes,
-        analyticsRes,
-        transRes,
-      ] = await Promise.all([
+      
+      // Fetch data dasar
+      const [menuRes, userRes, logRes, branchRes, meRes] = await Promise.all([
         fetch(`/api/admin/menu${branchQuery}`),
         fetch(`/api/admin/users${branchQuery}`),
         fetch(`/api/admin/log${branchQuery}`),
         fetch("/api/cabang"),
         fetch("/api/auth/me"),
-        fetch(`/api/admin/analytics${branchQuery}`).catch(() => ({
-          ok: false,
-          json: () => null,
-        })),
-        fetch(`/api/transaksi${branchQuery}`).catch(() => ({
-          ok: false,
-          json: () => null,
-        })),
       ]);
 
       if (!meRes.ok) {
@@ -1217,20 +1203,27 @@ export default function AdminDashboard() {
         const b = await branchRes.json();
         setBranches(Array.isArray(b) ? b : [b]);
       }
-      if (analyticsRes.ok) {
+
+      // Fetch Analytics dan Transaksi (dengan catch untuk antisipasi endpoint belum siap)
+      const [analyticsRes, transRes] = await Promise.all([
+        fetch(`/api/admin/analytics${branchQuery}`).catch(() => null),
+        fetch(`/api/transaksi${branchQuery}`).catch(() => null),
+      ]);
+
+      if (analyticsRes && analyticsRes.ok) {
         const analytics = await analyticsRes.json();
         if (analytics) setAnalyticsData(analytics);
       }
-      if (transRes.ok) {
+
+      if (transRes && transRes.ok) {
         const tData = await transRes.json();
         if (Array.isArray(tData)) {
-          setTransactions(
-            tData.filter((t: any) => t.status === "COMPLETED")
-          );
+          // Hanya ambil transaksi yang selesai untuk analitik pendapatan
+          setTransactions(tData.filter((t: any) => t.status === "COMPLETED"));
         }
       }
     } catch (e) {
-      console.error(e);
+      console.error("Dashboard Fetch Error:", e);
     } finally {
       setLoading(false);
     }
