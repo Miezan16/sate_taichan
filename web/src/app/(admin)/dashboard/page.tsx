@@ -514,13 +514,13 @@ function OverviewTab({
                 <YAxis
                   stroke="#ffffff50"
                   tick={{ fill: "#ffffff50" }}
-                  tickFormatter={(value) =>
-                    value >= 1000 ? `Rp${value / 1000}k` : `Rp${value}`
-                  }
+                  tickFormatter={(value: any) =>
+  value >= 1000 ? `Rp${value / 1000}k` : `Rp${value}`
+}
                   width={80}
                 />
                 <Tooltip
-                  formatter={(value: number) => [formatRp(value), "Pendapatan"]}
+                  formatter={(value: any) => [formatRp(Number(value) || 0), "Pendapatan"]}
                   labelStyle={{
                     color: "#a78bfa",
                     fontWeight: "bold",
