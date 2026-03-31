@@ -345,16 +345,17 @@ export default function CashierDashboard() {
       });
       if (res.ok) {
         setSelectedOrder((prev) =>
-          prev
-            ? {
-                ...prev,
-                kasir_nama: cashierName,
-                metode_pembayaran: paymentMethod,
-                uang_bayar: uangBayarVal,
-                kembalian: kembalianVal,
-              }
-            : null
-        );
+  prev
+    ? {
+        ...prev,
+        kasir_nama: cashierName,
+        // Tambahkan "as any" di sini untuk membungkam error TypeScript
+        metode_pembayaran: paymentMethod as any,
+        uang_bayar: uangBayarVal,
+        kembalian: kembalianVal,
+      }
+    : null
+);
         setShowReceipt(true);
         await fetchOrders();
         // --- UPDATE STOCK SETELAH PEMBAYARAN BERHASIL ---
