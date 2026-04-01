@@ -76,7 +76,7 @@ export default function LoginPage() {
                             <div className="absolute inset-0 bg-red-600/20 rounded-full blur-[20px]"></div>
                             {/* Gambar Logo Sate Sadjodo */}
                             <img 
-                                src="/Logo Sate Sadjodo.png" 
+                                src="/sadjodo.png" 
                                 alt="Logo Sate Sadjodo" 
                                 className="relative w-full h-full object-contain drop-shadow-2xl" 
                             />

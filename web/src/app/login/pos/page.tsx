@@ -727,7 +727,7 @@ export default function CashierDashboard() {
             <div className="absolute inset-0 bg-red-600/20 rounded-full blur-[15px] group-hover:bg-red-600/40 transition-all duration-500"></div>
 
             <img
-              src="/logo-sadjodo.png"
+              src="/sadjodo.png"
               alt="Logo Sate Sadjodo"
               className="relative w-full h-full object-contain opacity-90 drop-shadow-2xl transition-transform duration-500 group-hover:scale-105"
             />

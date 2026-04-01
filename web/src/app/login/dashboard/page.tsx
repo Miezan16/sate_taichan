@@ -449,9 +449,7 @@ function OverviewTab({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white/5 border border-white/10 p-4 rounded-2xl">
-        
-      </div>
+      
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white/5 border border-white/10 p-5 rounded-2xl relative overflow-hidden group hover:bg-white/10 transition-colors">
@@ -1256,8 +1254,8 @@ export default function AdminDashboard() {
           <div className="relative w-14 h-14 flex items-center justify-center">
             <div className="absolute inset-0 bg-red-600/20 rounded-full blur-[15px] group-hover:bg-red-600/40 transition-all duration-500"></div>
             <img
-              src="/logo-sadjodo.png"
-              alt="Logo Sate Sadjodo"
+              src="/sadjodo.png"
+              alt="/sadjodo.png"
               className="relative w-full h-full object-contain opacity-90 drop-shadow-2xl transition-transform duration-500 group-hover:scale-105"
             />
           </div>

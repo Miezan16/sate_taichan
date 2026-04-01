@@ -1,43 +1,55 @@
-// src/proxy.ts — Next.js 16 route protection (replaces deprecated middleware.ts)
-import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
-import { SESSION_COOKIE_NAME } from '@/lib/session';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export async function proxy(request: NextRequest) {
-    const { pathname } = request.nextUrl;
-    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-    const session = token ? await verifyToken(token) : null;
+// Di Next.js terbaru, nama fungsinya menyesuaikan konvensi proxy
+export function proxy(req: NextRequest) {
+  const url = req.nextUrl.clone();
 
-    // --- Proteksi /dashboard (hanya ADMIN) ---
-    if (pathname.startsWith('/dashboard')) {
-        if (!session) {
-            return NextResponse.redirect(new URL('/login', request.url));
-        }
-        if (session.role !== 'admin') {
-            // Kasir yang nyasar ke /dashboard → redirect ke /pos
-            return NextResponse.redirect(new URL('/pos', request.url));
-        }
-    }
+  // Ambil hostname (domain)
+  const hostname = req.headers.get("host") || "";
 
-    // --- Proteksi /pos (kasir + admin) ---
-    if (pathname.startsWith('/pos')) {
-        if (!session) {
-            return NextResponse.redirect(new URL('/login', request.url));
-        }
-        // Semua role yang terautentikasi boleh akses /pos
-    }
+  // Pengaturan Domain Kamu
+  // localhost:3000 ditambahkan agar bisa di-test di komputer
+  const isPelangganDomain =
+    hostname === "sadjodo.com" ||
+    hostname === "www.sadjodo.com" ||
+    hostname === "localhost:3000";
+  const isAdminDomain =
+    hostname === "login.sadjodo.com" || hostname === "login.localhost:3000";
 
-    // --- Halaman login: jika sudah login, redirect ke halaman sesuai role ---
-    if (pathname === '/login') {
-        if (session) {
-            const redirectTo = session.role === 'admin' ? '/dashboard' : '/pos';
-            return NextResponse.redirect(new URL(redirectTo, request.url));
-        }
-    }
-
+  // Cegah rewrite berulang jika sudah di folder yang benar
+  if (
+    url.pathname.startsWith("/pelanggan") ||
+    url.pathname.startsWith("/login")
+  ) {
     return NextResponse.next();
+  }
+
+  // 1. Jika yang diakses adalah domain ADMIN/KASIR (login.sadjodo.com)
+  if (isAdminDomain) {
+    url.pathname = `/login${url.pathname === "/" ? "" : url.pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  // 2. Jika yang diakses adalah domain PELANGGAN (sadjodo.com)
+  if (isPelangganDomain) {
+    url.pathname = `/pelanggan${url.pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
-    matcher: ['/pos/:path*', '/dashboard/:path*', '/login'],
+  matcher: [
+    /*
+     * Abaikan semua jalur (path) yang berawalan:
+     * - api (API routes)
+     * - _next/static (file statis dari Next.js)
+     * - _next/image (fitur optimasi gambar Next.js)
+     * - favicon.ico
+     * - dan abaikan SEMUA FILE yang memiliki ekstensi gambar (.svg, .png, .jpg, .jpeg, .gif, .webp)
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };
