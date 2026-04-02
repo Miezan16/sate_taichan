@@ -34,6 +34,7 @@ import {
   AlertTriangle,
   RefreshCw,
   Utensils,
+  Minus,
 } from "lucide-react";
 
 // --- TYPES ---
@@ -652,30 +653,26 @@ export default function CashierDashboard() {
           </div>
         </div>
 
-        <div className="space-y-2 mb-4 relative z-10">
+        <div className="space-y-3 mb-4 relative z-10">
           {order.items?.slice(0, 3).map((item) => (
-            <div
-              key={item.id}
-              className="flex flex-col gap-1 text-xs"
-            >
-              <div className="flex justify-between items-start">
+            <div key={item.id} className="flex flex-col text-sm">
+              <div className="flex justify-between items-start text-white/90 font-medium">
                 <div className="flex gap-2">
                   <span className={`font-bold ${col.text}`}>{item.jumlah}x</span>
-                  <span className="text-gray-300 leading-tight pr-2">
-                    {item.menu?.nama}
-                  </span>
+                  <span className="text-gray-300 leading-tight pr-2">{item.menu?.nama}</span>
                 </div>
               </div>
-              {/* --- TAMPILAN LEVEL PEDAS & CATATAN PADA KARTU PESANAN --- */}
+              
+              {/* --- LEVEL PEDAS & CATATAN PADA CARD --- */}
               {((item.level_pedas !== null && item.level_pedas !== undefined) || item.catatan) && (
-                <div className="flex flex-wrap gap-1 ml-6 mb-1">
+                <div className="flex flex-wrap gap-1 mt-1.5 ml-6 mb-1">
                   {item.level_pedas !== null && item.level_pedas !== undefined && (
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'}`}>
-                      {item.level_pedas > 0 ? <><Flame size={8} /> Level {item.level_pedas}</> : "Pisah Sambal"}
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'}`}>
+                      {item.level_pedas > 0 ? <><Flame size={10} /> Level {item.level_pedas}</> : "Pisah Sambal"}
                     </span>
                   )}
                   {item.catatan && (
-                    <span className="text-[9px] text-gray-400 italic bg-white/5 px-1.5 py-0.5 rounded border border-white/5 line-clamp-1 break-all max-w-[150px]">
+                    <span className="text-[10px] text-gray-400 italic break-all max-w-[150px] line-clamp-1 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">
                       "{item.catatan}"
                     </span>
                   )}
