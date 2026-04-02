@@ -45,6 +45,8 @@ interface MenuItem {
 
 interface CartItem extends MenuItem {
   qty: number;
+  level_pedas?: number;
+  catatan?: string;
 }
 
 // --- 2. KONSTANTA ---
@@ -181,11 +183,14 @@ export default function CustomerOrderPage() {
 
   // --- STATE CART & POPUP ---
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartLoaded, setIsCartLoaded] = useState(false); // Flag untuk local storage
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedMenuToAdd, setSelectedMenuToAdd] = useState<MenuItem | null>(
     null
   );
   const [addQty, setAddQty] = useState(1);
+  const [customLevel, setCustomLevel] = useState<number>(0);
+  const [customNote, setCustomNote] = useState<string>("");
 
   // --- CHECKOUT STATES ---
   const [checkoutStep, setCheckoutStep] = useState<
@@ -199,6 +204,10 @@ export default function CustomerOrderPage() {
   // --- SLIDER STATE ---
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoSliding, setIsAutoSliding] = useState(true);
+
+  // --- TOAST STATE ---
+  const [toastMessage, setToastMessage] = useState<string>("");
+  const [showToast, setShowToast] = useState<boolean>(false);
 
   const cartTotal = cart.reduce(
     (total, item) => total + item.harga * item.qty,
@@ -263,6 +272,37 @@ export default function CustomerOrderPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // --- LOAD CART DARI LOCAL STORAGE (JALAN SEKALI SAAT RENDER PERTAMA) ---
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedCart = localStorage.getItem("sadjodo_cart");
+      if (savedCart) {
+        try {
+          setCart(JSON.parse(savedCart));
+        } catch (error) {
+          console.error("Gagal load cart dari localStorage", error);
+        }
+      }
+      setIsCartLoaded(true);
+    }
+  }, []);
+
+  // --- SIMPAN CART KE LOCAL STORAGE SETIAP KALI CART BERUBAH ---
+  useEffect(() => {
+    if (isCartLoaded) {
+      localStorage.setItem("sadjodo_cart", JSON.stringify(cart));
+    }
+  }, [cart, isCartLoaded]);
+
+  // Logika mendeteksi menu pedas (Kategori Sate atau dari nama)
+  const isSpicyMenu = selectedMenuToAdd ? (
+    selectedMenuToAdd.kategori === "Sate" || 
+    selectedMenuToAdd.nama.toLowerCase().includes("taichan") || 
+    selectedMenuToAdd.nama.toLowerCase().includes("pedas") || 
+    selectedMenuToAdd.nama.toLowerCase().includes("mercon") || 
+    selectedMenuToAdd.nama.toLowerCase().includes("chili")
+  ) : false;
+
   // --- LOGIKA PESANAN & CART ---
   const confirmAddToCart = () => {
     if (!selectedMenuToAdd) return;
@@ -271,18 +311,33 @@ export default function CustomerOrderPage() {
       return;
     }
     adjustStock(selectedMenuToAdd.id, -addQty);
+
+    const finalLevel = isSpicyMenu ? customLevel : undefined;
+    const finalNote = customNote.trim() !== "" ? customNote : undefined;
+
     setCart((prev) => {
       const existing = prev.find((item) => item.id === selectedMenuToAdd.id);
       if (existing)
         return prev.map((item) =>
           item.id === selectedMenuToAdd.id
-            ? { ...item, qty: item.qty + addQty }
+            ? { ...item, qty: item.qty + addQty, level_pedas: finalLevel, catatan: finalNote }
             : item
         );
-      return [...prev, { ...selectedMenuToAdd, qty: addQty }];
+      return [...prev, { ...selectedMenuToAdd, qty: addQty, level_pedas: finalLevel, catatan: finalNote }];
     });
+
+    // --- LOGIKA TOAST MENAMPILKAN PESAN ---
+    setToastMessage(`${selectedMenuToAdd.nama} sudah masuk ke keranjang`);
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+    }, 3000);
+    // -------------------------------------
+
     setSelectedMenuToAdd(null);
     setAddQty(1);
+    setCustomLevel(0);
+    setCustomNote("");
   };
 
   const removeFromCart = (menuId: number) => {
@@ -333,6 +388,8 @@ export default function CustomerOrderPage() {
             menu_id: item.id,
             jumlah: item.qty,
             harga_satuan: item.harga,
+            level_pedas: item.level_pedas,
+            catatan: item.catatan
           })),
         }),
       });
@@ -340,7 +397,7 @@ export default function CustomerOrderPage() {
       const data = await response.json();
       if (data && data.id) setSubmittedOrderId(data.id);
       setCheckoutStep("waiting");
-      setCart([]);
+      setCart([]); // Saat cart dikosongkan, localStorage juga akan otomatis ikut kosong
       fetchOccupiedTables();
     } catch (error) {
       alert("Terjadi kesalahan saat mengirim pesanan.");
@@ -997,7 +1054,7 @@ export default function CustomerOrderPage() {
         <div className="w-full h-full">
           {activeTab === "Home" && renderHome()}
           {activeTab !== "Home" && (
-            <div className="h-full overflow-y-auto px-6 lg:px-12 py-8 pb-32">
+            <div className="h-full overflow-y-auto px-6 lg:px-12 pt-12 md:pt-8 pb-32">
               {activeTab === "Menu" && renderMenu()}
               {activeTab === "Location" && renderLocation()}
               {activeTab === "About" && renderAbout()}
@@ -1017,6 +1074,8 @@ export default function CustomerOrderPage() {
               onClick={() => {
                 setSelectedMenuToAdd(null);
                 setAddQty(1);
+                setCustomLevel(0);
+                setCustomNote("");
               }}
               className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60]"
             />
@@ -1024,22 +1083,22 @@ export default function CustomerOrderPage() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md bg-[#0a0a0a] border border-white/10 rounded-[3rem] p-8 z-[70] shadow-2xl flex flex-col items-center text-center"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar bg-[#0a0a0a] border border-white/10 rounded-[3rem] p-6 md:p-8 z-[70] shadow-2xl flex flex-col items-center text-center"
             >
               {/* UPDATE FOTO TAMBAH KE KERANJANG - PRIORITAS DATABASE */}
               <img
                 src={getMenuImage(selectedMenuToAdd)}
-                className="w-32 h-32 rounded-full object-cover border-4 border-white/10 mb-6 shadow-xl"
+                className="w-32 h-32 rounded-full object-cover border-4 border-white/10 mb-6 shadow-xl shrink-0"
                 alt={selectedMenuToAdd.nama}
               />
               <h3 className="text-2xl font-black text-white mb-2">
                 {selectedMenuToAdd.nama}
               </h3>
-              <p className="text-gray-400 text-sm mb-8">
+              <p className="text-gray-400 text-sm mb-6">
                 Atur jumlah pesanan untuk menu ini.
               </p>
 
-              <div className="flex items-center gap-6 bg-white/5 rounded-full p-2 mb-8 border border-white/10">
+              <div className="flex items-center gap-6 bg-white/5 rounded-full p-2 mb-6 border border-white/10 shrink-0">
                 <button
                   onClick={() => setAddQty(Math.max(1, addQty - 1))}
                   className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all text-white"
@@ -1063,11 +1122,50 @@ export default function CustomerOrderPage() {
                 </button>
               </div>
 
-              <div className="flex gap-3 w-full">
+              {/* NEW SPICY LEVEL SELECTION */}
+              {isSpicyMenu && (
+                <div className="mb-4 w-full text-left shrink-0">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">Level Pedas <span className="font-normal normal-case text-gray-500">(Opsional)</span></label>
+                  <div className="flex justify-between gap-2">
+                    {[0, 1, 2, 3, 4, 5].map((level) => (
+                      <button
+                        key={level}
+                        onClick={() => setCustomLevel(level)}
+                        className={`flex-1 py-2 rounded-xl border transition-all ${
+                          customLevel === level
+                            ? "bg-gradient-to-br from-[#C1121F] to-red-800 border-red-500 text-white shadow-[0_0_15px_rgba(193,18,31,0.4)]"
+                            : "bg-[#111] border-white/10 text-gray-400 hover:bg-white/10"
+                        }`}
+                      >
+                        <span className="block text-xs font-bold mb-0.5">{level === 0 ? "Pisah" : `Lv ${level}`}</span>
+                        <div className="flex justify-center gap-0.5">
+                          {level === 0 ? <Minus size={10} className="text-orange-500" /> : Array.from({length: Math.min(level, 3)}).map((_,i)=><Flame key={i} size={10} className="text-orange-500" />)}
+                          {level > 3 && <Plus size={10} className="text-orange-500" />}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* NEW NOTES FIELD */}
+              <div className="mb-8 w-full text-left shrink-0">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">Catatan Pesanan <span className="font-normal normal-case text-gray-500">(Opsional)</span></label>
+                <textarea
+                   value={customNote}
+                   onChange={(e) => setCustomNote(e.target.value)}
+                   placeholder="Contoh: Bakar agak kering, bawang goreng dipisah..."
+                   className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:border-[#C1121F] focus:ring-1 focus:ring-[#C1121F] outline-none transition-all resize-none h-20 text-sm custom-scrollbar"
+                />
+              </div>
+
+              <div className="flex gap-3 w-full shrink-0">
                 <button
                   onClick={() => {
                     setSelectedMenuToAdd(null);
                     setAddQty(1);
+                    setCustomLevel(0);
+                    setCustomNote("");
                   }}
                   className="flex-1 py-4 rounded-full font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 transition-all"
                 >
@@ -1158,7 +1256,7 @@ export default function CustomerOrderPage() {
                         {/* UPDATE FOTO KERANJANG - PRIORITAS DATABASE */}
                         <img
                           src={getMenuImage(item)}
-                          className="w-20 h-20 rounded-2xl object-cover"
+                          className="w-20 h-20 rounded-2xl object-cover shrink-0"
                           alt={item.nama}
                         />
                         <div className="flex-1 flex flex-col justify-between">
@@ -1166,6 +1264,18 @@ export default function CustomerOrderPage() {
                             <h4 className="font-bold text-white text-sm">
                               {item.nama}
                             </h4>
+                            {/* --- TAMPILAN LEVEL PEDAS & CATATAN --- */}
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.level_pedas !== undefined && (
+                                 <span className={`text-[10px] px-2 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? 'bg-orange-500/20 text-orange-500' : 'bg-red-500/20 text-red-500'}`}>
+                                   {item.level_pedas > 0 ? <><Flame size={10} /> Level {item.level_pedas}</> : "Pisah Sambal"}
+                                 </span>
+                              )}
+                            </div>
+                            {item.catatan && (
+                              <p className="text-[10px] text-gray-400 mt-1 italic line-clamp-1 break-all">"{item.catatan}"</p>
+                            )}
+                            {/* -------------------------------------- */}
                             <p className="text-[#C1121F] font-black text-sm mt-1">
                               Rp {item.harga.toLocaleString()}
                             </p>
@@ -1190,7 +1300,7 @@ export default function CustomerOrderPage() {
                             </div>
                             <button
                               onClick={() => removeFromCart(item.id)}
-                              className="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"
+                              className="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all shrink-0"
                             >
                               <Trash2 size={16} />
                             </button>
@@ -1363,6 +1473,23 @@ export default function CustomerOrderPage() {
           </>
         )}
       </AnimatePresence>
+
+      {/* --- TOAST NOTIFICATION --- */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, x: "-50%", y: -20 }}
+            animate={{ opacity: 1, x: "-50%", y: 0 }}
+            exit={{ opacity: 0, x: "-50%", y: -20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="fixed top-24 md:top-12 left-1/2 z-[100] bg-[#1a1a1a] text-white px-6 py-4 rounded-full border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center gap-3 backdrop-blur-lg w-max max-w-[90vw]"
+          >
+            <CheckCircle2 className="text-[#C1121F] shrink-0" size={20} />
+            <p className="font-medium text-sm text-center leading-tight">{toastMessage}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* --------------------------- */}
 
       {/* CHAT WIDGET: Disembunyikan saat modal keranjang / tambah menu terbuka agar tidak menghalangi */}
       {!isCartOpen && !selectedMenuToAdd && <ChatWidget />}

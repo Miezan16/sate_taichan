@@ -41,7 +41,7 @@ model User {
   username      String        @unique
   password_hash String
   role          Role          @default(kasir)
-  cabang_id     Int? 
+  cabang_id     Int?
   transaksi     Transaksi[]
   activityLogs  ActivityLog[]
 
@@ -96,6 +96,8 @@ model TransaksiItem {
   menu_id      Int
   jumlah       Int
   harga_satuan Int
+  level_pedas  Int?      // <-- DITAMBAHKAN: Menyimpan level pedas (0-5)
+  catatan      String?   // <-- DITAMBAHKAN: Menyimpan teks catatan pelanggan
 
   transaksi Transaksi @relation(fields: [transaksi_id], references: [id], onDelete: Cascade)
   menu      Menu      @relation(fields: [menu_id], references: [id])

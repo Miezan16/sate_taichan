@@ -55,6 +55,8 @@ interface OrderItem {
   menu: MenuItem;
   jumlah: number;
   harga_satuan: number;
+  level_pedas?: number | null;
+  catatan?: string | null;
 }
 
 interface Order {
@@ -634,7 +636,7 @@ export default function CashierDashboard() {
                 })}
               </span>
             </div>
-            <h3 className="font-bold text-sm text-white truncate max-w-[150px]">
+            <h3 className="text-sm font-bold text-white truncate max-w-[150px]">
               {order.nama_pelanggan}
             </h3>
           </div>
@@ -654,18 +656,35 @@ export default function CashierDashboard() {
           {order.items?.slice(0, 3).map((item) => (
             <div
               key={item.id}
-              className="flex justify-between items-start text-xs"
+              className="flex flex-col gap-1 text-xs"
             >
-              <div className="flex gap-2">
-                <span className={`font-bold ${col.text}`}>{item.jumlah}x</span>
-                <span className="text-gray-300 leading-tight pr-2">
-                  {item.menu?.nama}
-                </span>
+              <div className="flex justify-between items-start">
+                <div className="flex gap-2">
+                  <span className={`font-bold ${col.text}`}>{item.jumlah}x</span>
+                  <span className="text-gray-300 leading-tight pr-2">
+                    {item.menu?.nama}
+                  </span>
+                </div>
               </div>
+              {/* --- TAMPILAN LEVEL PEDAS & CATATAN PADA KARTU PESANAN --- */}
+              {((item.level_pedas !== null && item.level_pedas !== undefined) || item.catatan) && (
+                <div className="flex flex-wrap gap-1 ml-6 mb-1">
+                  {item.level_pedas !== null && item.level_pedas !== undefined && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'}`}>
+                      {item.level_pedas > 0 ? <><Flame size={8} /> Level {item.level_pedas}</> : "Pisah Sambal"}
+                    </span>
+                  )}
+                  {item.catatan && (
+                    <span className="text-[9px] text-gray-400 italic bg-white/5 px-1.5 py-0.5 rounded border border-white/5 line-clamp-1 break-all max-w-[150px]">
+                      "{item.catatan}"
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           ))}
           {order.items?.length > 3 && (
-            <div className="text-[10px] text-gray-500 font-medium italic">
+            <div className="text-[10px] text-gray-500 font-medium italic mt-1">
               + {order.items.length - 3} item lainnya...
             </div>
           )}
@@ -680,20 +699,21 @@ export default function CashierDashboard() {
               Rp {order.total_harga.toLocaleString("id-ID")}
             </p>
           </div>
+
           <button
             onClick={() => handleNextStatus(order)}
             disabled={isLoading}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95  ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95 ${
               isLoading
                 ? "bg-white/5 text-gray-500 cursor-not-allowed"
-                : `bg-gradient-to-r ${col.accent} text-white hover:shadow-xl ${col.shadow}`
+                : `bg-gradient-to-r ${col.accent} text-white hover:scale-105`
             }`}
           >
             {isLoading ? (
               <Loader2 className="animate-spin" size={14} />
             ) : isLastStatus ? (
               <>
-                Bayar <Wallet size={14} />
+                <Banknote size={14} /> Bayar
               </>
             ) : (
               <>
@@ -706,45 +726,34 @@ export default function CashierDashboard() {
     );
   };
 
-  // --- FILTER & RENDER STOCK ITEM ---
   const filteredStockItems = stockItems.filter((item) => {
-    const matchCat =
-      stockCategoryFilter === "All" || item.kategori === stockCategoryFilter;
-    const matchSearch = item.nama
+    const matchesSearch = item.nama
       .toLowerCase()
       .includes(stockSearchQuery.toLowerCase());
-    return matchCat && matchSearch;
+    const matchesCategory =
+      stockCategoryFilter === "All" || item.kategori === stockCategoryFilter;
+    return matchesSearch && matchesCategory;
   });
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans flex overflow-hidden">
+    <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden">
       {/* --- SIDEBAR --- */}
-      <aside className="w-20 bg-[#0a0a0a]/80 backdrop-blur-xl border-r border-white/5 flex flex-col items-center py-6 gap-6 fixed h-full z-40">
-        {/* LOGO AREA SATE SADJODO */}
-        <div className="mb-8 flex flex-col items-center gap-2 group">
-          <div className="relative w-14 h-14 flex items-center justify-center">
-            {/* Glow effect di belakang logo agar lebih menyatu dengan background gelap */}
-            <div className="absolute inset-0 bg-red-600/20 rounded-full blur-[15px] group-hover:bg-red-600/40 transition-all duration-500"></div>
-
-            <img
-              src="/sadjodo.png"
-              alt="Logo Sate Sadjodo"
-              className="relative w-full h-full object-contain opacity-90 drop-shadow-2xl transition-transform duration-500 group-hover:scale-105"
-            />
-          </div>
+      <aside className="w-20 lg:w-24 bg-[#0a0a0a] border-r border-white/10 py-6 flex flex-col items-center z-20">
+        <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center mb-8 shadow-[0_0_20px_rgba(6,182,212,0.4)] relative">
+          <ChefHat size={24} className="text-white relative z-10" />
         </div>
 
-        <nav className="flex flex-col gap-4 w-full px-3 flex-1">
+        <nav className="flex flex-col gap-4 w-full px-3">
           {[
-            { id: "overview", icon: LineChart, label: "Stats" },
-            { id: "board", icon: LayoutGrid, label: "Board" },
-            { id: "stock", icon: Package, label: "Stok" },
+            { id: "overview", icon: Activity, label: "Statistik" },
+            { id: "board", icon: LayoutGrid, label: "Pesanan" },
             { id: "history", icon: History, label: "Riwayat" },
+            { id: "stock", icon: Package, label: "Stok Menu" },
           ].map((menu) => (
             <button
               key={menu.id}
               onClick={() => setActiveTab(menu.id as any)}
-              className={`group relative w-full aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 ${
+              className={`w-full aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 relative group ${
                 activeTab === menu.id
                   ? "bg-white/10 text-white shadow-lg border border-white/10"
                   : "text-gray-500 hover:text-white hover:bg-white/5"
@@ -799,55 +808,69 @@ export default function CashierDashboard() {
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative ml-20">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-rose-500/5 rounded-full blur-[100px] pointer-events-none" />
-
-        {/* --- GLOBAL HEADER (Pendapatan Live) --- */}
-        <header className="px-8 py-6 flex justify-between items-center z-10 border-b border-white/5 bg-black/20 backdrop-blur-sm">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
+        {/* HEADER */}
+        <header className="h-20 px-8 flex items-center justify-between border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl z-10 sticky top-0">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-              SATE{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600">
-                SADJODO
-              </span>
+            <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+              SISTEM KASIR{" "}
+              <span className="text-cyan-400">SATE SADJODO</span>
             </h1>
-            <p className="text-gray-400 font-medium text-[11px] mt-1 tracking-wide flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              Sistem Kasir Aktif
+            <p className="text-xs text-gray-400 font-medium mt-0.5">
+              Dashboard Manajemen Pesanan
             </p>
           </div>
 
-          <div className="flex gap-4 items-center">
-            {/* Indikator Pendapatan Hari Ini */}
-            <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 px-5 py-2.5 rounded-2xl flex items-center gap-3">
-              <div className="p-1.5 bg-emerald-500/20 rounded-lg text-emerald-400">
-                <TrendingUp size={18} />
+          <div className="flex items-center gap-4">
+            {/* DROPDOWN PILIH CABANG */}
+            {branches.length > 0 && (
+              <div className="relative group flex items-center bg-white/5 border border-white/10 rounded-xl px-4 py-2 gap-3 hover:bg-white/10 transition-colors cursor-pointer">
+                <Building2 size={16} className="text-cyan-400" />
+                <select
+                  value={selectedCabangId}
+                  onChange={(e) => setSelectedCabangId(Number(e.target.value))}
+                  className="bg-transparent text-sm font-bold text-white outline-none cursor-pointer appearance-none pr-4"
+                >
+                  {branches.map((b) => (
+                    <option
+                      key={b.id}
+                      value={b.id}
+                      className="bg-zinc-900 text-white"
+                    >
+                      {b.nama_cabang}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="text-gray-400 absolute right-3 pointer-events-none"
+                />
               </div>
-              <div>
-                <p className="text-[9px] font-bold text-emerald-500/80 uppercase tracking-widest mb-0.5">
-                  Pendapatan Hari Ini
-                </p>
-                <p className="text-lg font-black text-emerald-400 leading-none tracking-tight">
-                  Rp {revenueToday.toLocaleString("id-ID")}
-                </p>
-              </div>
+            )}
+
+            <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
+              <CalendarDays size={16} className="text-cyan-400" />
+              <span className="text-sm font-bold text-gray-300">
+                {today.toLocaleDateString("id-ID", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "short",
+                })}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-sm font-bold text-emerald-400">Online</span>
             </div>
           </div>
         </header>
 
-        <div className="flex-1 p-8 overflow-hidden z-10">
-          {/* --- VIEW: OVERVIEW / DASHBOARD --- */}
+        {/* CONTENT AREA */}
+        <div className="flex-1 p-6 md:p-8 overflow-y-auto custom-scrollbar">
+          {/* --- VIEW: OVERVIEW / STATISTIK --- */}
           {activeTab === "overview" && (
-            <div className="h-full overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10">
-              <h2 className="text-2xl font-bold text-white mb-6">
-                Overview Restoran
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="space-y-8 max-w-6xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Card 1: Pelanggan Hari Ini */}
                 <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] relative overflow-hidden group hover:bg-white/10 transition-colors">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-colors" />
@@ -888,9 +911,9 @@ export default function CashierDashboard() {
 
                 {/* Card 3: Pelanggan Bulan Ini */}
                 <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] relative overflow-hidden group hover:bg-white/10 transition-colors">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-colors" />
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-colors" />
                   <div className="flex justify-between items-start mb-4">
-                    <div className="p-3 bg-rose-500/20 text-rose-400 rounded-xl">
+                    <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl">
                       <CalendarDays size={24} />
                     </div>
                   </div>
@@ -904,19 +927,45 @@ export default function CashierDashboard() {
                     </span>
                   </p>
                 </div>
+              </div>
 
-                {/* Card 4: Total Pendapatan Bulan Ini */}
-                <div className="bg-gradient-to-br from-emerald-500/10 to-teal-900/40 border border-emerald-500/20 p-6 rounded-[2rem] relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/20 rounded-full blur-2xl" />
-                  <div className="flex justify-between items-start mb-4 relative z-10">
-                    <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl">
-                      <Wallet size={24} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gradient-to-br from-[#111] to-[#0a0a0a] border border-white/10 p-8 rounded-[2rem] relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+                  <div className="flex items-center gap-4 mb-6 relative z-10">
+                    <div className="p-4 bg-blue-500/20 rounded-2xl text-blue-400">
+                      <LineChart size={28} />
+                    </div>
+                    <div>
+                      <h3 className="text-gray-400 text-sm font-bold uppercase tracking-wider">
+                        Pendapatan Hari Ini
+                      </h3>
+                      <p className="text-sm text-gray-500 font-medium">
+                        Total omzet harian
+                      </p>
                     </div>
                   </div>
-                  <h3 className="text-emerald-500/80 text-xs font-bold uppercase tracking-wider mb-1 relative z-10">
-                    Pendapatan Bulan Ini
-                  </h3>
-                  <p className="text-3xl font-black text-emerald-400 relative z-10">
+                  <p className="text-5xl font-black text-white tracking-tighter relative z-10">
+                    Rp {revenueToday.toLocaleString("id-ID")}
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-[#111] to-[#0a0a0a] border border-white/10 p-8 rounded-[2rem] relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                  <div className="flex items-center gap-4 mb-6 relative z-10">
+                    <div className="p-4 bg-emerald-500/20 rounded-2xl text-emerald-400">
+                      <TrendingUp size={28} />
+                    </div>
+                    <div>
+                      <h3 className="text-gray-400 text-sm font-bold uppercase tracking-wider">
+                        Pendapatan Bulan Ini
+                      </h3>
+                      <p className="text-sm text-gray-500 font-medium">
+                        Total omzet bulanan
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-5xl font-black text-white tracking-tighter relative z-10">
                     Rp {revenueMonth.toLocaleString("id-ID")}
                   </p>
                 </div>
@@ -924,33 +973,32 @@ export default function CashierDashboard() {
             </div>
           )}
 
-          {/* --- VIEW: DASHBOARD KANBAN --- */}
+          {/* --- VIEW: KANBAN BOARD --- */}
           {activeTab === "board" && (
-            <div className="flex gap-6 h-full overflow-x-auto pb-4 snap-x [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-[600px]">
               {COLUMNS.map((col) => {
                 const colOrders = orders.filter((o) => o.status === col.id);
                 return (
                   <div
                     key={col.id}
-                    className="min-w-[340px] max-w-[340px] flex flex-col h-full snap-center bg-black/40 border border-white/5 rounded-[2rem] overflow-hidden backdrop-blur-sm"
+                    className="flex flex-col bg-[#0a0a0a]/50 border border-white/5 rounded-[2rem] overflow-hidden"
                   >
-                    <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                    <div
+                      className={`p-5 border-b border-white/5 flex justify-between items-center bg-gradient-to-r ${col.bg} to-transparent`}
+                    >
                       <div className="flex items-center gap-3">
-                        <div
-                          className={`p-2 rounded-xl bg-gradient-to-br ${col.accent} shadow-lg ${col.shadow}`}
-                        >
-                          <col.icon className="text-white" size={16} />
-                        </div>
-                        <h2 className="font-bold text-sm text-white tracking-wide">
+                        <col.icon className={col.text} size={20} />
+                        <h2 className="font-bold text-white tracking-wide text-sm">
                           {col.label}
                         </h2>
                       </div>
                       <span
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold ${col.bg} ${col.text} border ${col.border}`}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold ${col.bg} ${col.text} border ${col.border}`}
                       >
                         {colOrders.length}
                       </span>
                     </div>
+
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
                       <AnimatePresence>
                         {colOrders.length === 0 ? (
@@ -996,40 +1044,39 @@ export default function CashierDashboard() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                  <div className="flex-1 md:flex-none flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-3 py-2">
-                    <Search size={14} className="text-gray-400" />
+                  <div className="relative flex-1 md:w-48">
+                    <Search
+                      size={14}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                    />
                     <input
                       type="text"
                       placeholder="Cari menu..."
                       value={stockSearchQuery}
                       onChange={(e) => setStockSearchQuery(e.target.value)}
-                      className="bg-transparent border-none outline-none text-xs text-white w-28 md:w-40 placeholder:text-gray-600"
+                      className="w-full bg-black border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white focus:border-cyan-500 focus:outline-none transition-colors"
                     />
                   </div>
                   <button
                     onClick={fetchStock}
-                    disabled={isLoadingStock}
-                    className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all"
+                    className="p-1.5 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
                     title="Refresh Stok"
                   >
-                    <RefreshCw
-                      size={16}
-                      className={isLoadingStock ? "animate-spin" : ""}
-                    />
+                    <RefreshCw size={14} />
                   </button>
                 </div>
               </div>
 
-              {/* Stock Filter - LEBIH RAPAT */}
-              <div className="px-6 py-3 border-b border-white/5 flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+              {/* Kategori Filter - LEBIH KECIL */}
+              <div className="px-6 py-3 border-b border-white/10 flex gap-2 overflow-x-auto scrollbar-hide bg-black/20">
                 {stockCategories.map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setStockCategoryFilter(cat)}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                    className={`px-4 py-1.5 rounded-md text-[11px] font-bold transition-all whitespace-nowrap ${
                       stockCategoryFilter === cat
-                        ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                        : "bg-white/5 text-gray-400 hover:bg-white/10 border border-transparent"
+                        ? "bg-cyan-500 text-black"
+                        : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
                     }`}
                   >
                     {cat}
@@ -1037,35 +1084,34 @@ export default function CashierDashboard() {
                 ))}
               </div>
 
-              {/* Stock Content - TABEL STOK LEBIH RAPAT */}
-              <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
+              {/* Table List - REAL DATA */}
+              <div className="flex-1 overflow-auto custom-scrollbar p-6">
                 {isLoadingStock ? (
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <Loader2
-                      className="animate-spin text-cyan-400 mb-4"
-                      size={32}
-                    />
-                    <p className="text-gray-400 text-xs">Memuat data stok...</p>
+                  <div className="flex flex-col items-center justify-center h-40 text-gray-500 gap-3">
+                    <Loader2 size={32} className="animate-spin text-cyan-500" />
+                    <p className="text-sm font-medium">Memuat data stok...</p>
                   </div>
                 ) : filteredStockItems.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                    <Package size={40} className="mb-4 opacity-30" />
-                    <p className="text-xs">Tidak ada item stok ditemukan</p>
+                  <div className="flex flex-col items-center justify-center h-40 text-gray-600 gap-3">
+                    <Package size={40} className="opacity-20" />
+                    <p className="text-sm font-medium">
+                      Tidak ada menu ditemukan
+                    </p>
                   </div>
                 ) : (
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-black/60 text-gray-400 text-[10px] uppercase sticky top-0 z-10 backdrop-blur-md border-b border-white/10">
-                      <tr>
-                        <th className="p-4 font-bold tracking-wider">
-                          Menu Item
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="text-[10px] text-gray-500 uppercase border-b border-white/10">
+                        <th className="pb-3 font-bold tracking-wider">
+                          Nama Menu
                         </th>
-                        <th className="p-4 font-bold tracking-wider text-center">
+                        <th className="pb-3 font-bold tracking-wider text-center">
                           Kategori
                         </th>
-                        <th className="p-4 font-bold tracking-wider text-center">
+                        <th className="pb-3 font-bold tracking-wider text-center">
                           Sisa Stok
                         </th>
-                        <th className="p-4 font-bold tracking-wider text-center">
+                        <th className="pb-3 font-bold tracking-wider text-center">
                           Status
                         </th>
                       </tr>
@@ -1080,18 +1126,18 @@ export default function CashierDashboard() {
                             key={item.id}
                             className="hover:bg-white/5 transition-colors"
                           >
-                            <td className="p-4">
+                            <td className="py-3">
                               <div className="flex items-center gap-3">
                                 {item.image ? (
                                   <img
                                     src={item.image}
                                     alt={item.nama}
-                                    className="w-10 h-10 rounded-lg object-cover border border-white/10"
+                                    className="w-8 h-8 rounded-md object-cover border border-white/10"
                                   />
                                 ) : (
-                                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
+                                  <div className="w-8 h-8 rounded-md bg-white/5 flex items-center justify-center">
                                     <Utensils
-                                      size={16}
+                                      size={14}
                                       className="text-gray-500"
                                     />
                                   </div>
@@ -1106,35 +1152,35 @@ export default function CashierDashboard() {
                                 </div>
                               </div>
                             </td>
-                            <td className="p-4 text-center">
-                              <span className="text-[10px] text-gray-400 bg-white/5 px-2 py-1 rounded-md">
+                            <td className="py-3 text-center">
+                              <span className="text-[10px] text-gray-400 bg-white/5 px-2 py-1 rounded border border-white/5">
                                 {item.kategori}
                               </span>
                             </td>
-                            <td className="p-4 text-center">
+                            <td className="py-3 text-center">
                               <span
                                 className={`font-black text-sm ${
                                   isOutOfStock
                                     ? "text-red-500"
                                     : isLowStock
-                                      ? "text-amber-400"
-                                      : "text-emerald-400"
+                                    ? "text-amber-400"
+                                    : "text-emerald-400"
                                 }`}
                               >
                                 {item.stok}
                               </span>
                             </td>
-                            <td className="p-4 text-center">
+                            <td className="py-3 text-center">
                               {isOutOfStock ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/10 text-red-500 border border-red-500/20 text-[10px] font-bold">
                                   <AlertTriangle size={10} /> HABIS
                                 </span>
                               ) : isLowStock ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold">
                                   <AlertTriangle size={10} /> MENIPIS
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
                                   <CheckCircle2 size={10} /> AMAN
                                 </span>
                               )}
@@ -1151,27 +1197,34 @@ export default function CashierDashboard() {
 
           {/* --- VIEW: HISTORY --- */}
           {activeTab === "history" && (
-            <div className="h-full flex flex-col bg-white/5 border border-white/10 rounded-[2rem] overflow-hidden backdrop-blur-md">
-              <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
+            <div className="bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/10 rounded-[2rem] overflow-hidden flex flex-col h-full max-w-6xl mx-auto shadow-2xl">
+              <div className="p-6 md:p-8 border-b border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/[0.02]">
                 <div>
-                  <h2 className="font-bold text-lg text-white flex items-center gap-2">
-                    <History className="text-cyan-400" size={20} /> Riwayat
+                  <h2 className="text-xl font-black text-white flex items-center gap-3">
+                    <History className="text-cyan-400" size={24} /> Riwayat
                     Transaksi
                   </h2>
+                  <p className="text-gray-400 text-xs mt-1 font-medium">
+                    Semua pesanan yang telah selesai dan dibayar.
+                  </p>
                 </div>
                 <button
                   onClick={handlePrintHistory}
-                  className="flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2.5 rounded-xl text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/20 transition-all"
+                  className="bg-white/10 hover:bg-white/20 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors border border-white/10 text-sm"
                 >
-                  <Download size={16} /> Export PDF
+                  <Printer size={16} /> Cetak Laporan
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-white/10">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-black/40 text-gray-400 text-[10px] uppercase sticky top-0 z-10 backdrop-blur-md border-b border-white/10">
-                    <tr>
+
+              <div className="flex-1 overflow-x-auto custom-scrollbar p-6 md:p-8">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="text-xs text-gray-500 uppercase border-b border-white/10 bg-white/[0.01]">
+                      <th className="p-5 font-bold tracking-wider rounded-tl-2xl">
+                        ID
+                      </th>
                       <th className="p-5 font-bold tracking-wider">
-                        ID / Waktu
+                        Tanggal & Waktu
                       </th>
                       <th className="p-5 font-bold tracking-wider">
                         Pelanggan
@@ -1180,7 +1233,7 @@ export default function CashierDashboard() {
                         Meja
                       </th>
                       <th className="p-5 font-bold tracking-wider">Kasir</th>
-                      <th className="p-5 font-bold tracking-wider text-right">
+                      <th className="p-5 font-bold tracking-wider text-right rounded-tr-2xl">
                         Total
                       </th>
                     </tr>
@@ -1189,11 +1242,20 @@ export default function CashierDashboard() {
                     {historyOrders.map((h) => (
                       <tr
                         key={h.id}
-                        className="hover:bg-white/5 transition-colors"
+                        className="hover:bg-white/5 transition-colors group"
                       >
                         <td className="p-5">
-                          <div className="text-cyan-400 font-bold text-xs mb-1">
+                          <span className="font-black text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-lg text-xs border border-cyan-500/20">
                             #{h.id}
+                          </span>
+                        </td>
+                        <td className="p-5">
+                          <div className="text-white font-bold text-sm">
+                            {new Date(h.tanggal).toLocaleDateString("id-ID", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
                           </div>
                           <div className="text-gray-500 text-[10px]">
                             {new Date(h.tanggal).toLocaleString("id-ID")}
@@ -1248,214 +1310,227 @@ export default function CashierDashboard() {
                   <X size={20} />
                 </button>
               )}
+
               {!showReceipt ? (
                 <div className="flex flex-col lg:flex-row h-[550px]">
-                  <div className="lg:w-1/2 bg-white/5 p-8 flex flex-col border-r border-white/10 relative">
-                    <h2 className="text-xl font-bold text-white mb-6">
-                      Ringkasan Pesanan
-                    </h2>
-                    <div className="bg-white/5 border border-white/10 p-4 rounded-xl mb-6 flex justify-between items-center">
-                      <div>
-                        <p className="text-xs text-gray-400 mb-1">Pelanggan</p>
-                        <p className="font-bold text-white">
-                          {selectedOrder.nama_pelanggan}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-400 mb-1">Meja</p>
-                        <p className="font-bold text-cyan-400 text-lg">
-                          {selectedOrder.nomor_meja}
-                        </p>
+                  <div className="lg:w-1/2 p-8 border-b lg:border-b-0 lg:border-r border-white/10 flex flex-col bg-[#0a0a0a]">
+                    <div className="mb-6">
+                      <h2 className="text-2xl font-black text-white flex items-center gap-2 mb-1">
+                        <Receipt className="text-cyan-400" /> Detail Pesanan
+                      </h2>
+                      <p className="text-sm text-gray-400 font-medium">
+                        Order #{selectedOrder.id} • {selectedOrder.nama_pelanggan} • Meja {selectedOrder.nomor_meja}
+                      </p>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto custom-scrollbar mb-6 bg-white/5 border border-white/10 rounded-2xl p-4">
+                      <div className="space-y-4 pr-2">
+                        {selectedOrder.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex justify-between items-start"
+                          >
+                            <div>
+                              <p className="font-bold text-sm text-white flex items-center gap-2">
+                                <span>{item.jumlah}x</span> {item.menu.nama}
+                              </p>
+                              {/* --- LEVEL PEDAS & CATATAN PADA MODAL --- */}
+                              {((item.level_pedas !== null && item.level_pedas !== undefined) || item.catatan) && (
+                                <div className="flex flex-wrap gap-1 mt-1 ml-6 mb-1">
+                                  {item.level_pedas !== null && item.level_pedas !== undefined && (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'}`}>
+                                      {item.level_pedas > 0 ? <><Flame size={10} /> Level {item.level_pedas}</> : "Pisah Sambal"}
+                                    </span>
+                                  )}
+                                  {item.catatan && (
+                                    <span className="text-[10px] text-gray-400 italic break-all max-w-[200px] line-clamp-2">
+                                      "{item.catatan}"
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <p className="text-xs text-gray-500 ml-6">
+                                @ Rp {item.harga_satuan.toLocaleString("id-ID")}
+                              </p>
+                            </div>
+                            <p className="font-bold text-sm text-white mt-1">
+                              Rp{" "}
+                              {(item.jumlah * item.harga_satuan).toLocaleString(
+                                "id-ID",
+                              )}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto space-y-3 pr-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-white/10">
-                      {selectedOrder.items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex justify-between text-sm"
-                        >
-                          <span className="text-gray-300">
-                            <span className="text-cyan-400 font-bold mr-2">
-                              {item.jumlah}x
-                            </span>
-                            {item.menu.nama}
-                          </span>
-                          <span className="font-bold text-white">
-                            Rp
-                            {(item.jumlah * item.harga_satuan).toLocaleString()}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="pt-6 border-t border-white/10 mt-4">
-                      <p className="text-xs text-gray-400 mb-1">
-                        Total Tagihan
-                      </p>
-                      <p className="text-3xl font-black text-white">
-                        Rp {selectedOrder.total_harga.toLocaleString()}
-                      </p>
+
+                    <div className="mt-auto space-y-3 bg-white/5 border border-white/10 p-5 rounded-2xl">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400 font-medium">Subtotal</span>
+                        <span className="font-bold text-gray-300">
+                          Rp {selectedOrder.total_harga.toLocaleString("id-ID")}
+                        </span>
+                      </div>
+                      <div className="h-px bg-white/10 w-full" />
+                      <div className="flex justify-between items-center">
+                        <span className="text-white font-bold">Total Pembayaran</span>
+                        <span className="text-2xl font-black text-cyan-400 tracking-tight">
+                          Rp {selectedOrder.total_harga.toLocaleString("id-ID")}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className="lg:w-1/2 p-8 flex flex-col overflow-y-auto">
-                    <div className="space-y-5">
+
+                  <div className="lg:w-1/2 p-8 flex flex-col bg-zinc-950">
+                    <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                      <CreditCard size={20} className="text-cyan-400" /> Proses Pembayaran
+                    </h3>
+
+                    <div className="space-y-6 flex-1">
                       <div>
                         <label className="text-xs font-bold text-gray-400 uppercase mb-3 block">
                           Metode Pembayaran
                         </label>
-                        <div className="grid grid-cols-2 gap-3">
-                          {(["CASH", "EWALLET"] as const).map((method) => (
-                            <button
-                              key={method}
-                              onClick={() => {
-                                setPaymentMethod(method);
-                                setUangDiterima("");
-                              }}
-                              className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
-                                paymentMethod === method
-                                  ? "border-cyan-500 bg-cyan-500/10 text-white"
-                                  : "border-white/10 bg-white/5 text-gray-400"
-                              }`}
-                            >
-                              {method === "CASH" ? (
-                                <Banknote size={24} />
-                              ) : (
-                                <CreditCard size={24} />
-                              )}
-                              <span className="font-bold text-xs">
-                                {method === "CASH" ? "Tunai" : "E-Wallet"}
-                              </span>
-                            </button>
-                          ))}
+                        <div className="grid grid-cols-2 gap-4">
+                          <button
+                            onClick={() => {
+                              setPaymentMethod("CASH");
+                              setUangDiterima("");
+                            }}
+                            className={`py-4 rounded-xl font-bold border flex flex-col items-center justify-center gap-2 transition-all ${
+                              paymentMethod === "CASH"
+                                ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)]"
+                                : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                            }`}
+                          >
+                            <Banknote size={24} /> Uang Tunai
+                          </button>
+                          <button
+                            onClick={() => {
+                              setPaymentMethod("EWALLET");
+                              setUangDiterima("");
+                            }}
+                            className={`py-4 rounded-xl font-bold border flex flex-col items-center justify-center gap-2 transition-all ${
+                              paymentMethod === "EWALLET"
+                                ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)]"
+                                : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                            }`}
+                          >
+                            <LayoutGrid size={24} /> E-Wallet / QRIS
+                          </button>
                         </div>
                       </div>
 
-                      {paymentMethod === "CASH" && (
-                        <div>
-                          <label className="text-xs font-bold text-gray-400 uppercase mb-3 block">
-                            Uang Diterima
-                          </label>
-                          <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">
-                              Rp
-                            </span>
-                            <input
-                              type="number"
-                              min={0}
-                              value={uangDiterima}
-                              onChange={(e) => setUangDiterima(e.target.value)}
-                              placeholder="0"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white font-bold text-sm outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                          </div>
-                          <div
-                            className={`mt-3 flex justify-between items-center px-4 py-3 rounded-xl border transition-all ${
-                              uangDiterima && !isCashValid
-                                ? "bg-red-500/10 border-red-500/30"
-                                : uangDiterima
+                      <AnimatePresence>
+                        {paymentMethod === "CASH" && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden space-y-4"
+                          >
+                            <div>
+                              <label className="text-xs font-bold text-gray-400 uppercase mb-3 block mt-2">
+                                Uang Diterima
+                              </label>
+                              <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">
+                                  Rp
+                                </span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={uangDiterima}
+                                  onChange={(e) => setUangDiterima(e.target.value)}
+                                  placeholder="0"
+                                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-4 text-white font-bold text-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                              </div>
+                              <div className="flex gap-2 mt-3 overflow-x-auto pb-2 scrollbar-hide">
+                                {[50000, 100000, 150000, 200000].map((amount) => (
+                                  <button
+                                    key={amount}
+                                    onClick={() => setUangDiterima(amount.toString())}
+                                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold text-gray-300 whitespace-nowrap transition-colors"
+                                  >
+                                    {amount.toLocaleString("id-ID")}
+                                  </button>
+                                ))}
+                                <button
+                                  onClick={() => setUangDiterima(selectedOrder.total_harga.toString())}
+                                  className="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 rounded-lg text-xs font-bold text-cyan-400 whitespace-nowrap transition-colors"
+                                >
+                                  Uang Pas
+                                </button>
+                              </div>
+                            </div>
+
+                            <div
+                              className={`p-5 rounded-2xl border transition-all ${
+                                uangDiterima && !isCashValid
+                                  ? "bg-red-500/10 border-red-500/30"
+                                  : uangDiterima
                                   ? "bg-emerald-500/10 border-emerald-500/30"
                                   : "bg-white/5 border-white/10"
-                            }`}
-                          >
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">
-                              Kembalian
-                            </span>
-                            <span
-                              className={`text-lg font-black ${
-                                uangDiterima && !isCashValid
-                                  ? "text-red-400"
-                                  : uangDiterima
-                                    ? "text-emerald-400"
-                                    : "text-gray-600"
                               }`}
                             >
-                              {uangDiterima && !isCashValid
-                                ? "— Kurang"
-                                : `Rp ${kembalian.toLocaleString("id-ID")}`}
-                            </span>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-sm font-medium text-gray-400">Kembalian</span>
+                                {!isCashValid && uangDiterima && (
+                                  <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">
+                                    Uang Kurang!
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-3xl font-black ${uangDiterima && !isCashValid ? "text-red-400" : uangDiterima ? "text-emerald-400" : "text-gray-500"}`}>
+                                Rp {kembalian.toLocaleString("id-ID")}
+                              </p>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {paymentMethod === "EWALLET" && (
+                        <div className="bg-white/5 border border-white/10 p-5 rounded-2xl flex items-center gap-4 text-gray-400">
+                          <div className="p-3 bg-white/10 rounded-xl">
+                            <LayoutGrid size={24} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-white text-sm">Pembayaran Non-Tunai</p>
+                            <p className="text-xs mt-1">Pastikan pelanggan sudah melakukan scan QRIS atau transfer sebelum menyelesaikan pesanan.</p>
                           </div>
                         </div>
                       )}
-
-                      <div>
-                        <label className="text-xs font-bold text-gray-400 uppercase mb-3 block">
-                          Informasi Kasir & Cabang
-                        </label>
-                        <div className="flex flex-col gap-3">
-                          {/* Info Kasir */}
-                          <div className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-xs shrink-0">
-                              {cashierName ? cashierName[0].toUpperCase() : "?"}
-                            </div>
-                            <div>
-                              <p className="font-bold text-sm">
-                                {cashierName || "Memuat..."}
-                              </p>
-                              <p className="text-[10px] text-gray-500">
-                                Session aktif
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Pilihan Cabang (Dropdown) */}
-                          <div className="relative">
-                            <Building2
-                              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                              size={18}
-                            />
-                            <select
-                              value={selectedCabangId}
-                              onChange={(e) =>
-                                setSelectedCabangId(Number(e.target.value))
-                              }
-                              className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-10 py-3 text-white font-bold text-sm outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all cursor-pointer appearance-none [&>option]:bg-zinc-900"
-                            >
-                              {branches.length === 0 && (
-                                <option value="">Memuat cabang...</option>
-                              )}
-                              {branches.map((b) => (
-                                <option key={b.id} value={b.id}>
-                                  {b.nama_cabang}
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDown
-                              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                              size={18}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={handleFinalSubmit}
-                        disabled={!isCashValid || selectedCabangId === ""}
-                        className={`w-full py-4 mt-2 rounded-xl font-bold uppercase transition-all ${
-                          isCashValid && selectedCabangId !== ""
-                            ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg hover:shadow-cyan-500/20"
-                            : "bg-white/5 text-gray-600 cursor-not-allowed"
-                        }`}
-                      >
-                        Selesaikan Pembayaran
-                      </button>
                     </div>
+
+                    <button
+                      onClick={handleFinalSubmit}
+                      disabled={!isCashValid}
+                      className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest text-sm mt-6 flex justify-center items-center gap-2 transition-all shadow-lg active:scale-95 ${
+                        isCashValid
+                          ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:scale-[1.02] shadow-[0_10px_30px_rgba(6,182,212,0.3)]"
+                          : "bg-white/5 text-gray-500 cursor-not-allowed border border-white/10"
+                      }`}
+                    >
+                      <CheckCircle2 size={20} /> Selesaikan Pembayaran
+                    </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-8 text-center">
-                  <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle2 size={32} />
+                <div className="p-8 md:p-12 text-center bg-zinc-950 flex flex-col items-center">
+                  <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 relative">
+                    <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping opacity-50" />
+                    <CheckCircle2 size={48} className="text-emerald-400 relative z-10" />
                   </div>
-                  <h2 className="text-xl font-bold text-white mb-2">
+                  <h2 className="text-3xl font-black text-white mb-2">
                     Pembayaran Berhasil!
                   </h2>
-                  <p className="text-gray-400 text-sm mb-6">
-                    Pesanan #{selectedOrder.id} atas nama{" "}
-                    {selectedOrder.nama_pelanggan} telah selesai.
+                  <p className="text-gray-400 mb-8 max-w-sm text-sm leading-relaxed">
+                    Pesanan #{selectedOrder.id} atas nama {selectedOrder.nama_pelanggan} telah selesai.
                   </p>
 
-                  {/* Rincian Pembayaran */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 text-left space-y-2">
-                    <div className="flex justify-between text-sm">
+                  <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-5 mb-8 w-full max-w-sm text-left">
+                    <div className="flex justify-between text-sm mb-3">
                       <span className="text-gray-400">Total Tagihan</span>
                       <span className="font-bold text-white">
                         Rp {selectedOrder.total_harga.toLocaleString("id-ID")}
@@ -1463,13 +1538,13 @@ export default function CashierDashboard() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Metode</span>
-                      <span className="font-bold text-white">
+                      <span className="font-bold text-white uppercase bg-white/10 px-2 py-0.5 rounded text-xs">
                         {selectedOrder.metode_pembayaran}
                       </span>
                     </div>
                     {selectedOrder.metode_pembayaran === "CASH" && (
                       <>
-                        <div className="flex justify-between text-sm">
+                        <div className="flex justify-between text-sm mt-3 pt-3 border-t border-white/10 mb-1">
                           <span className="text-gray-400">Uang Diterima</span>
                           <span className="font-bold text-white">
                             Rp{" "}
@@ -1491,18 +1566,18 @@ export default function CashierDashboard() {
                     )}
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 w-full max-w-sm">
                     <button
                       onClick={handlePrintReceipt}
-                      className="flex-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 py-3 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-cyan-500/30"
+                      className="flex-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 py-4 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-cyan-500/20 transition-colors"
                     >
                       <Printer size={18} /> Cetak Struk
                     </button>
                     <button
                       onClick={closeModal}
-                      className="flex-1 bg-white/10 text-white py-3 rounded-xl font-bold hover:bg-white/20"
+                      className="flex-1 bg-white text-black py-4 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-colors shadow-[0_10px_20px_rgba(255,255,255,0.1)]"
                     >
-                      Selesai
+                      Tutup
                     </button>
                   </div>
                 </div>
