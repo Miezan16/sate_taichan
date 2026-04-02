@@ -88,7 +88,8 @@ export async function POST(request: NextRequest) {
               return {
                 menu_id: Number(item.menu_id),
                 jumlah: Number(item.jumlah),
-                harga_satuan: menu.harga, // Harga dari DB, bukan dari client
+                harga_satuan: menu.harga,
+                catatan: item.catatan || null,
               };
             }),
           },
