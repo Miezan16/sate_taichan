@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
                 jumlah: Number(item.jumlah),
                 harga_satuan: menu.harga,
                 catatan: item.catatan || null,
+                level_pedas: item.level_pedas || 0,
               };
             }),
           },
