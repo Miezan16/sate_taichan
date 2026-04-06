@@ -255,14 +255,14 @@ export default function CashierDashboard() {
     fetchStock();
   }, [router]);
 
-  // --- AUTO REFRESH ORDERS & STOCK EVERY 5 SECONDS ---
+  // --- AUTO REFRESH ORDERS & STOCK EVERY 5 SECONDS SECARA BACKGROUND (TANPA ANIMASI) ---
   useEffect(() => {
     fetchOrders();
     fetchStock(); // Refresh stock/menu data to sync with admin deletions
 
     const interval = setInterval(() => {
       fetchOrders();
-      fetchStock(); // Auto refresh stock/menu every 5 seconds
+      fetchStock(); // Auto refresh stock/menu every 5 seconds secara statis
     }, 5000);
 
     return () => clearInterval(interval);
@@ -605,16 +605,13 @@ export default function CashierDashboard() {
     printWindow.document.close();
   };
 
+  // --- KOMPONEN KARTU STATIS (TANPA ANIMASI) ---
   const OrderCard = ({ order, col }: { order: Order; col: any }) => {
     const isLoading = loadingOrderId === order.id;
     const isLastStatus = order.status === "UNPAID";
 
     return (
-      <motion.div
-        layout
-        layoutId={`order-${order.id}`}
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
+      <div
         className="group relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all duration-300 shadow-xl overflow-hidden"
       >
         <div
@@ -719,7 +716,7 @@ export default function CashierDashboard() {
             )}
           </button>
         </div>
-      </motion.div>
+      </div>
     );
   };
 
@@ -970,7 +967,7 @@ export default function CashierDashboard() {
             </div>
           )}
 
-          {/* --- VIEW: KANBAN BOARD --- */}
+          {/* --- VIEW: KANBAN BOARD (DIBUAT STATIS/TANPA ANIMASI) --- */}
           {activeTab === "board" && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-[600px]">
               {COLUMNS.map((col) => {
@@ -997,28 +994,22 @@ export default function CashierDashboard() {
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
-                      <AnimatePresence>
-                        {colOrders.length === 0 ? (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="h-32 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-gray-600"
-                          >
-                            <col.icon className="mb-2 opacity-20" size={24} />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">
-                              Kosong
-                            </span>
-                          </motion.div>
-                        ) : (
-                          colOrders.map((o) => (
-                            <OrderCard
-                              key={`order-${o.id}`}
-                              order={o}
-                              col={col}
-                            />
-                          ))
-                        )}
-                      </AnimatePresence>
+                      {colOrders.length === 0 ? (
+                        <div className="h-32 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-gray-600">
+                          <col.icon className="mb-2 opacity-20" size={24} />
+                          <span className="text-[10px] font-bold uppercase tracking-widest">
+                            Kosong
+                          </span>
+                        </div>
+                      ) : (
+                        colOrders.map((o) => (
+                          <OrderCard
+                            key={`order-${o.id}`}
+                            order={o}
+                            col={col}
+                          />
+                        ))
+                      )}
                     </div>
                   </div>
                 );
@@ -1026,10 +1017,10 @@ export default function CashierDashboard() {
             </div>
           )}
 
-          {/* --- VIEW: STOCK (UPDATED WITH REAL DATA - SMALLER BADGES) --- */}
+          {/* --- VIEW: STOCK --- */}
           {activeTab === "stock" && (
             <div className="h-full flex flex-col bg-white/5 border border-white/10 rounded-[2rem] overflow-hidden backdrop-blur-md">
-              {/* Stock Header - LEBIH KOMPAK */}
+              {/* Stock Header */}
               <div className="px-6 py-4 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/[0.02]">
                 <div>
                   <h2 className="font-bold text-lg text-white flex items-center gap-2">
@@ -1054,17 +1045,11 @@ export default function CashierDashboard() {
                       className="w-full bg-black border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white focus:border-cyan-500 focus:outline-none transition-colors"
                     />
                   </div>
-                  <button
-                    onClick={fetchStock}
-                    className="p-1.5 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                    title="Refresh Stok"
-                  >
-                    <RefreshCw size={14} />
-                  </button>
+                  {/* Tombol Refresh Manual dihilangkan untuk kesan fully statis realtime */}
                 </div>
               </div>
 
-              {/* Kategori Filter - LEBIH KECIL */}
+              {/* Kategori Filter */}
               <div className="px-6 py-3 border-b border-white/10 flex gap-2 overflow-x-auto scrollbar-hide bg-black/20">
                 {stockCategories.map((cat) => (
                   <button

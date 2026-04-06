@@ -196,6 +196,7 @@ export default function CustomerOrderPage() {
   const [checkoutStep, setCheckoutStep] = useState<
     "cart" | "form" | "waiting" | "success"
   >("cart");
+  const [waitingStep, setWaitingStep] = useState(0); // State baru untuk animasi checkpoint
   const [customerName, setCustomerName] = useState("");
   const [tableNumber, setTableNumber] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -272,9 +273,10 @@ export default function CustomerOrderPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // --- LOAD CART DARI LOCAL STORAGE (JALAN SEKALI SAAT RENDER PERTAMA) ---
+  // --- LOAD CART & ACTIVE ORDER DARI LOCAL STORAGE (JALAN SEKALI SAAT RENDER PERTAMA) ---
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // Load cart
       const savedCart = localStorage.getItem("sadjodo_cart");
       if (savedCart) {
         try {
@@ -284,6 +286,23 @@ export default function CustomerOrderPage() {
         }
       }
       setIsCartLoaded(true);
+
+      // Load active order status (mencegah kembali ke dashboard bila reload saat waiting/success)
+      const activeOrder = localStorage.getItem("sadjodo_active_order");
+      if (activeOrder) {
+        try {
+          const parsed = JSON.parse(activeOrder);
+          if (parsed.checkoutStep === "waiting" || parsed.checkoutStep === "success") {
+            setIsCartOpen(true);
+            setCheckoutStep(parsed.checkoutStep);
+            setSubmittedOrderId(parsed.submittedOrderId);
+            setTableNumber(parsed.tableNumber || "");
+            setCustomerName(parsed.customerName || "");
+          }
+        } catch (e) {
+          console.error("Gagal load active order dari localStorage", e);
+        }
+      }
     }
   }, []);
 
@@ -395,10 +414,26 @@ export default function CustomerOrderPage() {
       });
       if (!response.ok) throw new Error("Gagal");
       const data = await response.json();
-      if (data && data.id) setSubmittedOrderId(data.id);
+      
+      const newOrderId = data?.id || null;
+      if (newOrderId) {
+        setSubmittedOrderId(newOrderId);
+      }
+      
       setCheckoutStep("waiting");
-      setCart([]); // Saat cart dikosongkan, localStorage juga akan otomatis ikut kosong
+      setCart([]); // Saat cart dikosongkan, localStorage cart juga akan otomatis ikut kosong
       fetchOccupiedTables();
+
+      // SIMPAN STATE CHECKPOINT KE LOCAL STORAGE
+      if (newOrderId && typeof window !== "undefined") {
+        localStorage.setItem("sadjodo_active_order", JSON.stringify({
+          checkoutStep: "waiting",
+          submittedOrderId: newOrderId,
+          tableNumber: tableNumber,
+          customerName: customerName
+        }));
+      }
+
     } catch (error) {
       alert("Terjadi kesalahan saat mengirim pesanan.");
       cart.forEach((item) => adjustStock(item.id, item.qty));
@@ -407,6 +442,19 @@ export default function CustomerOrderPage() {
       setIsSubmitting(false);
     }
   };
+
+  // Efek untuk animasi bertahap (Checkpoint) saat waiting
+  useEffect(() => {
+    if (checkoutStep === "waiting") {
+      setWaitingStep(0);
+      const t1 = setTimeout(() => setWaitingStep(1), 1500);
+      const t2 = setTimeout(() => setWaitingStep(2), 3000);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [checkoutStep]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -418,6 +466,16 @@ export default function CustomerOrderPage() {
           const myOrder = data.find((o: any) => o.id === submittedOrderId);
           if (myOrder && myOrder.status !== "PENDING") {
             setCheckoutStep("success");
+            
+            // Perbarui status success di local storage
+            if (typeof window !== "undefined") {
+              const activeOrderStr = localStorage.getItem("sadjodo_active_order");
+              if (activeOrderStr) {
+                const parsed = JSON.parse(activeOrderStr);
+                localStorage.setItem("sadjodo_active_order", JSON.stringify({ ...parsed, checkoutStep: "success" }));
+              }
+            }
+
             clearInterval(interval);
           }
         } catch (error) {
@@ -435,6 +493,10 @@ export default function CustomerOrderPage() {
       setCustomerName("");
       setTableNumber("");
       setSubmittedOrderId(null);
+      // Hapus state checkpoint dari localStorage jika sudah selesai
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("sadjodo_active_order");
+      }
     }
   };
 
@@ -667,8 +729,9 @@ export default function CustomerOrderPage() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 key={menu.id}
+                onClick={() => !isOutOfStock && setSelectedMenuToAdd(menu)}
                 className={`bg-[#0a0a0a] border border-white/5 rounded-[2rem] overflow-hidden group hover:border-white/15 transition-all shadow-xl hover:shadow-2xl flex flex-col ${
-                  isOutOfStock ? "opacity-50 grayscale" : ""
+                  isOutOfStock ? "opacity-50 grayscale cursor-not-allowed" : "cursor-pointer"
                 }`}
               >
                 <div className="relative h-56 overflow-hidden bg-[#111]">
@@ -717,7 +780,10 @@ export default function CustomerOrderPage() {
                       {menu.harga.toLocaleString("id-ID")}
                     </p>
                     <button
-                      onClick={() => !isOutOfStock && setSelectedMenuToAdd(menu)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Mencegah popup terpanggil 2 kali
+                        if (!isOutOfStock) setSelectedMenuToAdd(menu);
+                      }}
                       disabled={isOutOfStock}
                       className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg active:scale-95 ${
                         isOutOfStock
@@ -1034,10 +1100,15 @@ export default function CustomerOrderPage() {
       <main className="flex-1 w-full h-screen overflow-hidden relative lg:ml-24">
         {/* --- BAWAH KIRI CART BUTTON (HANYA DI MENU) --- */}
         {activeTab === "Menu" && (
-          <div className="absolute bottom-28 left-6 md:bottom-8 md:left-8 z-50">
+          <motion.div
+            drag
+            dragMomentum={false}
+            className="fixed bottom-28 left-6 md:bottom-8 md:left-8 z-50 cursor-grab active:cursor-grabbing"
+            style={{ touchAction: "none" }} // Mencegah scrolling layer saat didrag di HP
+          >
             <button
               onClick={() => setIsCartOpen(true)}
-              className="relative flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full transition-all duration-300 bg-[#C1121F] hover:bg-red-700 text-white shadow-[0_10px_30px_rgba(193,18,31,0.5)] border border-red-400/30"
+              className="relative flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full transition-all duration-300 bg-[#C1121F] hover:bg-red-700 text-white shadow-[0_10px_30px_rgba(193,18,31,0.5)] border border-red-400/30 pointer-events-auto"
               title="Keranjang"
             >
               <ShoppingCart size={24} />
@@ -1047,7 +1118,7 @@ export default function CustomerOrderPage() {
                 </span>
               )}
             </button>
-          </div>
+          </motion.div>
         )}
 
         {/* Dynamic Content - Full Screen Slider */}
@@ -1374,28 +1445,69 @@ export default function CustomerOrderPage() {
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="flex flex-col items-center justify-center h-full text-center"
+                    className="flex flex-col items-center justify-center h-full px-4 w-full"
                   >
-                    <div className="relative mb-8">
-                      <div className="absolute inset-0 bg-[#C1121F] rounded-full blur-2xl animate-pulse opacity-20" />
-                      <div className="w-24 h-24 bg-[#0a0a0a] border border-white/10 rounded-full flex items-center justify-center relative z-10">
-                        <Flame
-                          className="text-[#C1121F] animate-bounce"
-                          size={40}
-                        />
+                    <h3 className="text-2xl font-black text-white mb-10 text-center">
+                      Pesanan Diproses
+                    </h3>
+
+                    <div className="relative flex flex-col items-start w-full max-w-[280px] mx-auto gap-10">
+                      {/* Background Line */}
+                      <div className="absolute left-[19px] top-5 bottom-5 w-[2px] bg-white/10 rounded-full z-0" />
+                      
+                      {/* Animated Progress Line */}
+                      <motion.div 
+                        className="absolute left-[19px] top-5 w-[2px] bg-gradient-to-b from-[#C1121F] to-red-500 rounded-full z-0"
+                        initial={{ height: "0%" }}
+                        animate={{ height: waitingStep === 0 ? "0%" : waitingStep === 1 ? "50%" : "100%" }}
+                        transition={{ duration: 0.8, ease: "easeInOut" }}
+                      />
+
+                      {/* Step 1 */}
+                      <div className="flex items-center gap-6 relative z-10 w-full">
+                        <motion.div 
+                          animate={waitingStep === 0 ? { scale: [1, 1.1, 1], boxShadow: ["0 0 0px rgba(193,18,31,0)", "0 0 20px rgba(193,18,31,0.5)", "0 0 0px rgba(193,18,31,0)"] } : {}}
+                          transition={{ repeat: waitingStep === 0 ? Infinity : 0, duration: 1.5 }}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-500 ${waitingStep >= 0 ? 'bg-gradient-to-br from-[#C1121F] to-red-800 text-white' : 'bg-[#111] text-gray-600 border border-white/10'}`}
+                        >
+                          {waitingStep > 0 ? <CheckCircle2 size={20} /> : <ShoppingCart size={20} />}
+                        </motion.div>
+                        <div className="flex flex-col">
+                          <p className={`font-bold text-base transition-all duration-500 ${waitingStep >= 0 ? 'text-white' : 'text-gray-600'}`}>Mengirim pesanan</p>
+                          {waitingStep === 0 && <span className="text-xs text-red-400 mt-1">Sedang disinkronisasi...</span>}
+                        </div>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="flex items-center gap-6 relative z-10 w-full">
+                        <motion.div 
+                          animate={waitingStep === 1 ? { scale: [1, 1.1, 1], boxShadow: ["0 0 0px rgba(193,18,31,0)", "0 0 20px rgba(193,18,31,0.5)", "0 0 0px rgba(193,18,31,0)"] } : {}}
+                          transition={{ repeat: waitingStep === 1 ? Infinity : 0, duration: 1.5 }}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-500 ${waitingStep >= 1 ? 'bg-gradient-to-br from-[#C1121F] to-red-800 text-white' : 'bg-[#111] text-gray-600 border border-white/10'}`}
+                        >
+                          {waitingStep > 1 ? <CheckCircle2 size={20} /> : <Clock size={20} />}
+                        </motion.div>
+                        <div className="flex flex-col">
+                          <p className={`font-bold text-base transition-all duration-500 ${waitingStep >= 1 ? 'text-white' : 'text-gray-600'}`}>Verifikasi data</p>
+                          {waitingStep === 1 && <span className="text-xs text-red-400 mt-1">Mengecek ketersediaan...</span>}
+                        </div>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="flex items-center gap-6 relative z-10 w-full">
+                        <motion.div 
+                          animate={waitingStep === 2 ? { scale: [1, 1.1, 1], boxShadow: ["0 0 0px rgba(193,18,31,0)", "0 0 20px rgba(193,18,31,0.5)", "0 0 0px rgba(193,18,31,0)"] } : {}}
+                          transition={{ repeat: waitingStep === 2 ? Infinity : 0, duration: 1.5 }}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-500 ${waitingStep >= 2 ? 'bg-gradient-to-br from-[#C1121F] to-red-800 text-white' : 'bg-[#111] text-gray-600 border border-white/10'}`}
+                        >
+                          {waitingStep > 2 ? <CheckCircle2 size={20} /> : <ChefHat size={20} />}
+                        </motion.div>
+                        <div className="flex flex-col">
+                          <p className={`font-bold text-base transition-all duration-500 ${waitingStep >= 2 ? 'text-white' : 'text-gray-600'}`}>Menunggu koki</p>
+                          {waitingStep === 2 && <span className="text-xs text-red-400 mt-1">Pesanan diterima dapur!</span>}
+                        </div>
                       </div>
                     </div>
-                    <h3 className="text-2xl font-black text-white mb-3">
-                      Pesanan Diproses...
-                    </h3>
-                    <p className="text-gray-400 text-sm mb-6 max-w-xs mx-auto">
-                      Harap tunggu sebentar, sistem sedang mengirimkan pesanan
-                      Anda ke dapur.
-                    </p>
-                    <Loader2
-                      className="animate-spin text-white opacity-50 mx-auto"
-                      size={24}
-                    />
                   </motion.div>
                 ) : (
                   <motion.div
@@ -1478,11 +1590,11 @@ export default function CustomerOrderPage() {
       <AnimatePresence>
         {showToast && (
           <motion.div
-            initial={{ opacity: 0, x: "-50%", y: -20 }}
-            animate={{ opacity: 1, x: "-50%", y: 0 }}
-            exit={{ opacity: 0, x: "-50%", y: -20 }}
+            initial={{ opacity: 0, scale: 0.8, x: "-50%", y: 50 }}
+            animate={{ opacity: 1, scale: 1, x: "-50%", y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, x: "-50%", y: 50 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="fixed top-24 md:top-12 left-1/2 z-[100] bg-[#1a1a1a] text-white px-6 py-4 rounded-full border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center gap-3 backdrop-blur-lg w-max max-w-[90vw]"
+            className="fixed bottom-24 md:bottom-32 left-1/2 z-[100] bg-[#1a1a1a] text-white px-6 py-4 rounded-full border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center gap-3 backdrop-blur-lg w-max max-w-[90vw]"
           >
             <CheckCircle2 className="text-[#C1121F] shrink-0" size={20} />
             <p className="font-medium text-sm text-center leading-tight">{toastMessage}</p>
