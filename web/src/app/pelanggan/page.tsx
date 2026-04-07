@@ -609,19 +609,19 @@ export default function CustomerOrderPage() {
           />
         </div>
 
-        {/* BOTTOM SECTION - Diberi padding bawah agar tidak menyatu dengan navbar mobile */}
-        <div className="flex flex-col md:flex-row justify-between items-end z-20 pb-28 md:pb-12 gap-6 relative">
+       {/* BOTTOM SECTION - Diberi padding bawah agar tidak menyatu dengan navbar mobile */}
+        <div className="flex flex-row justify-between items-end z-20 pb-28 md:pb-12 gap-2 md:gap-6 relative w-full">
           {/* Bottom Left: Harga & Deskripsi */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5, duration: 0.8 }}
-            className="self-start md:self-end"
+            className="flex-1"
           >
             <div className="text-3xl md:text-5xl font-black text-white tracking-wider drop-shadow-lg mb-2">
               Rp {SLIDER_DATA[currentSlide].price.toLocaleString("id-ID")}
             </div>
-            <div className="max-w-[300px] md:max-w-md text-gray-300 text-xs md:text-sm leading-relaxed">
+            <div className="max-w-[220px] sm:max-w-[300px] md:max-w-md text-gray-300 text-xs md:text-sm leading-relaxed">
               {SLIDER_DATA[currentSlide].desc}
             </div>
           </motion.div>
@@ -631,17 +631,17 @@ export default function CustomerOrderPage() {
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5, duration: 0.8 }}
-            className="flex flex-col items-end gap-5 w-full md:w-auto"
+            className="flex flex-col items-end gap-5 shrink-0"
           >
             {/* Arrow Navigations */}
-            <div className="flex gap-4 self-end">
+            <div className="flex gap-2 md:gap-4 self-end">
               <button
                 onClick={() => {
                   prevSlide();
                   setIsAutoSliding(false);
                   setTimeout(() => setIsAutoSliding(true), 10000);
                 }}
-                className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-white hover:bg-white/10 hover:border-white/50 transition-all backdrop-blur-md"
+                className="w-10 h-10 md:w-12 md:h-12 rounded-full border border-white/20 flex items-center justify-center text-white hover:bg-white/10 hover:border-white/50 transition-all backdrop-blur-md"
               >
                 <ArrowRight size={20} className="rotate-180" />
               </button>
@@ -651,7 +651,7 @@ export default function CustomerOrderPage() {
                   setIsAutoSliding(false);
                   setTimeout(() => setIsAutoSliding(true), 10000);
                 }}
-                className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center text-white hover:bg-white/10 hover:border-white/50 transition-all backdrop-blur-md"
+                className="w-10 h-10 md:w-12 md:h-12 rounded-full border border-white/20 flex items-center justify-center text-white hover:bg-white/10 hover:border-white/50 transition-all backdrop-blur-md"
               >
                 <ArrowRight size={20} />
               </button>
