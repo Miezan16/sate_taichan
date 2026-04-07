@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -728,7 +728,7 @@ export default function CashierDashboard() {
   };
   // --- SELESAI KOMPONEN OrderCard ---
 
-  
+
   const filteredStockItems = stockItems.filter((item) => {
     const matchesSearch = item.nama
       .toLowerCase()
