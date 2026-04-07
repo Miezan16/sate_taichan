@@ -1,5 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+
+// ✅ GET - Ambil semua transaksi (untuk polling status pelanggan)
+export async function GET() {
+  try {
+    const transaksi = await prisma.transaksi.findMany({
+      orderBy: { tanggal: 'desc' },
+      include: {
+        items: {
+          include: {
+            menu: {
+              select: { id: true, nama: true, harga: true }
+            }
+          }
+        }
+      }
+    });
+    return NextResponse.json(transaksi, { status: 200 });
+  } catch (error) {
+    console.error('❌ Error GET transaksi:', error);
+    return NextResponse.json(
+      { error: 'Gagal mengambil data transaksi', details: error instanceof Error ? error.message : 'Unknown' },
+      { status: 500 }
+    );
+  }
+}
+
 // ✅ POST - Buat transaksi baru dengan atomic stock deduction
 export async function POST(request: NextRequest) {
   try {
@@ -31,20 +57,22 @@ export async function POST(request: NextRequest) {
         totalHarga += menu.harga * Number(item.jumlah);
       }
 
-      // 3. Kurangi stok secara atomic per menu
-      for (const item of items) {
-        const menu = menus.find((m) => m.id === Number(item.menu_id))!;
-        const sisaStok = menu.stok - Number(item.jumlah);
+      // 3. Kurangi stok secara atomic (PARALEL AGAR TIDAK TIMEOUT DI VERCEL)
+      await Promise.all(
+        items.map((item: any) => {
+          const menu = menus.find((m) => m.id === Number(item.menu_id))!;
+          const sisaStok = menu.stok - Number(item.jumlah);
 
-        await tx.menu.update({
-          where: { id: Number(item.menu_id) },
-          data: {
-            stok: { decrement: Number(item.jumlah) },
-            // Jika stok habis → otomatis non-aktifkan
-            ...(sisaStok <= 0 ? { tersedia: false } : {}),
-          },
-        });
-      }
+          return tx.menu.update({
+            where: { id: Number(item.menu_id) },
+            data: {
+              stok: { decrement: Number(item.jumlah) },
+              // Jika stok habis → otomatis non-aktifkan
+              ...(sisaStok <= 0 ? { tersedia: false } : {}),
+            },
+          });
+        })
+      );
 
       // 4. Buat transaksi dengan harga yang dihitung server-side (tamper-proof)
       const transaksi = await tx.transaksi.create({
