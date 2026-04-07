@@ -1,31 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-
-// ✅ GET - Ambil semua transaksi (untuk polling status pelanggan)
-export async function GET() {
-  try {
-    const transaksi = await prisma.transaksi.findMany({
-      orderBy: { tanggal: 'desc' },
-      include: {
-        items: {
-          include: {
-            menu: {
-              select: { id: true, nama: true, harga: true }
-            }
-          }
-        }
-      }
-    });
-    return NextResponse.json(transaksi, { status: 200 });
-  } catch (error) {
-    console.error('❌ Error GET transaksi:', error);
-    return NextResponse.json(
-      { error: 'Gagal mengambil data transaksi', details: error instanceof Error ? error.message : 'Unknown' },
-      { status: 500 }
-    );
-  }
-}
-
 // ✅ POST - Buat transaksi baru dengan atomic stock deduction
 export async function POST(request: NextRequest) {
   try {
@@ -90,13 +64,21 @@ export async function POST(request: NextRequest) {
                 jumlah: Number(item.jumlah),
                 harga_satuan: menu.harga,
                 catatan: item.catatan || null,
-                level_pedas: item.level_pedas || 0,
+                // ✅ FIX BUG: Mencegah menu non-sate otomatis jadi level 0 (Pisah Sambal)
+                level_pedas: item.level_pedas !== undefined && item.level_pedas !== null ? Number(item.level_pedas) : null,
               };
             }),
           },
         },
         include: {
-          items: { include: { menu: true } },
+          // ✅ FIX VERCEL 4.5MB LIMIT: Jangan ambil image base64, cukup data teks yang dibutuhkan kasir
+          items: { 
+            include: { 
+              menu: {
+                select: { id: true, nama: true, harga: true }
+              } 
+            } 
+          },
         },
       });
 
