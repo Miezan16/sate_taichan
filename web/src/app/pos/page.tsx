@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -151,8 +151,6 @@ export default function CashierDashboard() {
   const [stockCategoryFilter, setStockCategoryFilter] = useState("All");
   const stockCategories = ["All", "Sate", "Karbo", "Camilan", "Minuman"];
 
-  const scrollPositions = React.useRef<Record<number, number>>({});
-  
   // Kembalian dihitung secara real-time
   const kembalian =
     paymentMethod === "CASH" && uangDiterima
@@ -608,7 +606,6 @@ export default function CashierDashboard() {
   };
 
   // --- KOMPONEN KARTU STATIS (TANPA ANIMASI) ---
- c// --- KOMPONEN KARTU PESANAN (SALIN DARI SINI) ---
   const OrderCard = ({ order, col }: { order: Order; col: any }) => {
     const isLoading = loadingOrderId === order.id;
     const isLastStatus = order.status === "UNPAID";
@@ -617,12 +614,10 @@ export default function CashierDashboard() {
       <div
         className="group relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all duration-300 shadow-xl overflow-hidden"
       >
-        {/* Efek Cahaya Dekoratif */}
         <div
           className={`absolute -top-10 -right-10 w-24 h-24 bg-gradient-to-br ${col.accent} rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity`}
         />
 
-        {/* Header: ID, Waktu, Nama, dan Nomor Meja */}
         <div className="flex justify-between items-start mb-4 relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
@@ -655,21 +650,8 @@ export default function CashierDashboard() {
           </div>
         </div>
 
-        {/* --- DAFTAR ITEM DENGAN FITUR KUNCI SCROLL --- */}
-        <div 
-          className="space-y-3 mb-4 relative z-10 max-h-[200px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
-          // 1. Simpan posisi scroll saat user menggeser list
-          onScroll={(e) => {
-            scrollPositions.current[order.id] = e.currentTarget.scrollTop;
-          }}
-          // 2. Paksa posisi scroll tetap di tempat saat data di-refresh
-          ref={(el) => {
-            if (el && scrollPositions.current[order.id] !== undefined) {
-              el.scrollTop = scrollPositions.current[order.id];
-            }
-          }}
-        >
-          {order.items?.map((item) => (
+        <div className="space-y-3 mb-4 relative z-10">
+          {order.items?.slice(0, 3).map((item) => (
             <div key={item.id} className="flex flex-col text-sm">
               <div className="flex justify-between items-start text-white/90 font-medium">
                 <div className="flex gap-2">
@@ -678,7 +660,7 @@ export default function CashierDashboard() {
                 </div>
               </div>
               
-              {/* Detail Level Pedas & Catatan */}
+              {/* --- LEVEL PEDAS & CATATAN PADA CARD --- */}
               {((item.level_pedas !== null && item.level_pedas !== undefined) || item.catatan) && (
                 <div className="flex flex-wrap gap-1 mt-1.5 ml-6 mb-1">
                   {item.level_pedas !== null && item.level_pedas !== undefined && (
@@ -695,30 +677,41 @@ export default function CashierDashboard() {
               )}
             </div>
           ))}
+          {order.items?.length > 3 && (
+            <div className="text-[10px] text-gray-500 font-medium italic mt-1">
+              + {order.items.length - 3} item lainnya...
+            </div>
+          )}
         </div>
 
-        {/* --- FOOTER: TOMBOL STATUS --- */}
-        <div className="relative z-10">
+        <div className="flex items-end justify-between pt-3 border-t border-white/10 relative z-10">
+          <div>
+            <p className="text-[9px] text-gray-500 font-medium uppercase tracking-wider mb-0.5">
+              Total
+            </p>
+            <p className="text-sm font-bold text-white tracking-tight">
+              Rp {order.total_harga.toLocaleString("id-ID")}
+            </p>
+          </div>
+
           <button
-            onClick={() => handleUpdateStatus(order.id, order.status)}
+            onClick={() => handleNextStatus(order)}
             disabled={isLoading}
-            className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95 ${
               isLoading
                 ? "bg-white/5 text-gray-500 cursor-not-allowed"
-                : isLastStatus
-                ? "bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-[1.02]"
-                : `bg-white/10 text-white hover:bg-white/20 border border-white/10`
+                : `bg-gradient-to-r ${col.accent} text-white hover:scale-105`
             }`}
           >
             {isLoading ? (
-              <Loader2 className="animate-spin" size={16} />
+              <Loader2 className="animate-spin" size={14} />
             ) : isLastStatus ? (
               <>
-                <Banknote size={16} /> SELESAIKAN PEMBAYARAN
+                <Banknote size={14} /> Bayar
               </>
             ) : (
               <>
-                <ChevronRight size={16} /> PROSES KE TAHAP BERIKUTNYA
+                Proses <ChevronRight size={14} />
               </>
             )}
           </button>
@@ -726,8 +719,6 @@ export default function CashierDashboard() {
       </div>
     );
   };
-  // --- SELESAI KOMPONEN OrderCard ---
-
 
   const filteredStockItems = stockItems.filter((item) => {
     const matchesSearch = item.nama
@@ -1334,81 +1325,7 @@ export default function CashierDashboard() {
                                     </span>
                                   )}
                                   {item.catatan && (
-                
-
-  const filteredStockItems = stockItems.filter((item) => {
-    const matchesSearch = item.nama
-      .toLowerCase()
-      .includes(stockSearchQuery.toLowerCase());
-    const matchesCategory =
-      stockCategoryFilter === "All" || item.kategori === stockCategoryFilter;
-    return matchesSearch && matchesCategory;
-  });
-
-  return (
-    <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden">
-      {/* --- SIDEBAR --- */}
-      <aside className="w-20 lg:w-24 bg-[#0a0a0a] border-r border-white/10 py-6 flex flex-col items-center z-20">
-        <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center mb-8 shadow-[0_0_20px_rgba(6,182,212,0.4)] relative">
-          <ChefHat size={24} className="text-white relative z-10" />
-        </div>
-
-        <nav className="flex flex-col gap-4 w-full px-3">
-          {[
-            { id: "overview", icon: Activity, label: "Statistik" },
-            { id: "board", icon: LayoutGrid, label: "Pesanan" },
-            { id: "history", icon: History, label: "Riwayat" },
-            { id: "stock", icon: Package, label: "Stok Menu" },
-          ].map((menu) => (
-            <button
-              key={menu.id}
-              onClick={() => setActiveTab(menu.id as any)}
-              className={`w-full aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 relative group ${
-                activeTab === menu.id
-                  ? "bg-white/10 text-white shadow-lg border border-white/10"
-                  : "text-gray-500 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <menu.icon
-                size={20}
-                className={`transition-transform ${
-                  activeTab === menu.id
-                    ? "scale-110 text-cyan-400"
-                    : "group-hover:scale-110"
-                }`}
-              />
-              <span className="text-[9px] font-bold tracking-wide">
-                {menu.label}
-              </span>
-              {activeTab === menu.id && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute left-0 w-1 h-8 bg-cyan-400 rounded-full"
-                  style={{ top: "50%", transform: "translateY(-50%)" }}
-                />
-              )}
-            </button>
-          ))}
-        </nav>
-
-        {/* Kasir info + Logout */}
-        <div className="w-full px-3 mt-auto">
-          <div className="flex flex-col items-center gap-1 mb-4">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-xs">
-              {cashierName ? cashierName[0].toUpperCase() : "?"}
-            </div>
-            <span className="text-[9px] text-gray-500 font-medium text-center truncate w-full text-center">
-              {cashierName || "..."}
-            </span>
-          </div>
-          <button
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            title="Logout"
-            className="w-full aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300"
-          >
-            {isLoggingOut ? (
-                            <span className="text-[10px] text-gray-400 italic break-all max-w-[200px] line-clamp-2">
+                                    <span className="text-[10px] text-gray-400 italic break-all max-w-[200px] line-clamp-2">
                                       "{item.catatan}"
                                     </span>
                                   )}
