@@ -392,9 +392,12 @@ export default function CustomerOrderPage() {
   };
 
   const submitOrder = async () => {
-    if (!customerName.trim() || !tableNumber.trim())
+    if (!customerName.trim() || !tableNumber.trim()) {
       return alert("Harap isi Nama dan pilih Nomor Meja!");
+    }
+    
     setIsSubmitting(true);
+    
     try {
       const response = await fetch("/api/transaksi", {
         method: "POST",
@@ -412,7 +415,15 @@ export default function CustomerOrderPage() {
           })),
         }),
       });
-      if (!response.ok) throw new Error("Gagal");
+
+      // ✅ BONGKAR ERROR ASLI DARI SERVER JIKA GAGAL
+      if (!response.ok) {
+        // Coba tangkap pesan error asli dari backend (route.ts)
+        const errorData = await response.json().catch(() => ({})); 
+        throw new Error(errorData.error || errorData.details || `Error ${response.status}: Gagal dari server`);
+      }
+
+      // Jika berhasil, lanjut proses datanya
       const data = await response.json();
       
       const newOrderId = data?.id || null;
@@ -423,25 +434,20 @@ export default function CustomerOrderPage() {
       setCheckoutStep("waiting");
       setCart([]); // Saat cart dikosongkan, localStorage cart juga akan otomatis ikut kosong
       fetchOccupiedTables();
+      
+    } catch (error) {
+      // ✅ TAMPILKAN ERROR ASLI SEBAGAI POP-UP (ALERT)
+      const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan sistem";
+      alert(`Pesanan Gagal: ${errorMessage}`);
+      console.error("Error submit:", errorMessage);
+    } finally {
+      // ✅ MATIKAN LOADING AGAR TOMBOL BISA DIKLIK LAGI
+      setIsSubmitting(false); 
+    }
+};
 
       // SIMPAN STATE CHECKPOINT KE LOCAL STORAGE
-      if (newOrderId && typeof window !== "undefined") {
-        localStorage.setItem("sadjodo_active_order", JSON.stringify({
-          checkoutStep: "waiting",
-          submittedOrderId: newOrderId,
-          tableNumber: tableNumber,
-          customerName: customerName
-        }));
-      }
-
-    } catch (error) {
-      alert("Terjadi kesalahan saat mengirim pesanan.");
-      cart.forEach((item) => adjustStock(item.id, item.qty));
-      setCart([]);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+     
 
   // Efek untuk animasi bertahap (Checkpoint) saat waiting
   useEffect(() => {
