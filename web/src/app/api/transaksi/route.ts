@@ -1,32 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// ✅ GET - Ambil semua transaksi (untuk polling status pelanggan)
+// ✅ GET - Ambil semua transaksi
 export async function GET() {
   try {
     const transaksi = await prisma.transaksi.findMany({
       orderBy: { tanggal: 'desc' },
       include: {
         items: {
-          include: {
-            menu: {
-              select: { id: true, nama: true, harga: true }
-            }
-          }
+          include: { menu: { select: { id: true, nama: true, harga: true } } }
         }
       }
     });
     return NextResponse.json(transaksi, { status: 200 });
   } catch (error) {
-    console.error('❌ Error GET transaksi:', error);
     return NextResponse.json(
-      { error: 'Gagal mengambil data transaksi', details: error instanceof Error ? error.message : 'Unknown' },
+      { error: 'Gagal mengambil data', details: error instanceof Error ? error.message : 'Unknown' },
       { status: 500 }
     );
   }
 }
 
-// ✅ POST - Buat transaksi baru dengan atomic stock deduction
+// ✅ POST - Buat transaksi (SUPER FAST BATCH TRANSACTION - ANTI TIMEOUT)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -36,53 +31,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Data tidak lengkap' }, { status: 400 });
     }
 
-    // ✅ ATOMIC TRANSACTION — Semua operasi berhasil atau semua dibatalkan
-    const newTransaksi = await prisma.$transaction(async (tx) => {
-      // 1. Ambil semua menu yang diorder sekaligus untuk validasi stok
-      const menuIds = items.map((item: any) => Number(item.menu_id));
-      const menus = await tx.menu.findMany({
-        where: { id: { in: menuIds }, deleted_at: null, tersedia: true },
-        // ✅ FIX FINAL VERCEL TIMEOUT: Hanya ambil data teks yang dibutuhkan, JANGAN tarik gambar (Base64) dari database!
-        select: {
-          id: true,
-          nama: true,
-          harga: true,
-          stok: true
-        }
-      });
+    // 1. Ambil data menu biasa (TIDAK di dalam transaksi agar lebih cepat)
+    const menuIds = items.map((item: any) => Number(item.menu_id));
+    const menus = await prisma.menu.findMany({
+      where: { id: { in: menuIds }, deleted_at: null, tersedia: true },
+      select: { id: true, nama: true, harga: true, stok: true } // Bebas gambar base64
+    });
 
-      // 2. Validasi stok mencukupi untuk setiap item
-      let totalHarga = 0;
-      for (const item of items) {
-        const menu = menus.find((m) => m.id === Number(item.menu_id));
-        if (!menu) {
-          throw new Error(`Menu dengan ID ${item.menu_id} tidak tersedia`);
-        }
-        if (menu.stok < Number(item.jumlah)) {
-          throw new Error(`Stok "${menu.nama}" tidak mencukupi (tersisa: ${menu.stok})`);
-        }
-        totalHarga += menu.harga * Number(item.jumlah);
-      }
+    // 2. Validasi stok & hitung harga di Node.js (Kecepatan cahaya)
+    let totalHarga = 0;
+    for (const item of items) {
+      const menu = menus.find((m) => m.id === Number(item.menu_id));
+      if (!menu) throw new Error(`Menu ID ${item.menu_id} tidak tersedia`);
+      if (menu.stok < Number(item.jumlah)) throw new Error(`Stok "${menu.nama}" tidak mencukupi (sisa: ${menu.stok})`);
+      totalHarga += menu.harga * Number(item.jumlah);
+    }
 
-      // 3. Kurangi stok secara atomic (PARALEL AGAR TIDAK TIMEOUT DI VERCEL)
-      await Promise.all(
-        items.map((item: any) => {
-          const menu = menus.find((m) => m.id === Number(item.menu_id))!;
-          const sisaStok = menu.stok - Number(item.jumlah);
+    // 3. Siapkan BATCH operasi database (Bungkus ke dalam array)
+    const prismaOperations = [];
 
-          return tx.menu.update({
-            where: { id: Number(item.menu_id) },
-            data: {
-              stok: { decrement: Number(item.jumlah) },
-              // Jika stok habis → otomatis non-aktifkan
-              ...(sisaStok <= 0 ? { tersedia: false } : {}),
-            },
-          });
+    // - Masukkan antrean update stok (puluhan menu sekaligus)
+    for (const item of items) {
+      const menu = menus.find((m) => m.id === Number(item.menu_id))!;
+      const sisaStok = menu.stok - Number(item.jumlah);
+      
+      prismaOperations.push(
+        prisma.menu.update({
+          where: { id: Number(item.menu_id) },
+          data: {
+            stok: { decrement: Number(item.jumlah) },
+            ...(sisaStok <= 0 ? { tersedia: false } : {}),
+          },
         })
       );
+    }
 
-      // 4. Buat transaksi dengan harga yang dihitung server-side (tamper-proof)
-      const transaksi = await tx.transaksi.create({
+    // - Masukkan antrean pembuatan transaksi di akhir array
+    prismaOperations.push(
+      prisma.transaksi.create({
         data: {
           nama_pelanggan,
           nomor_meja: String(nomor_meja),
@@ -99,35 +85,31 @@ export async function POST(request: NextRequest) {
                 jumlah: Number(item.jumlah),
                 harga_satuan: menu.harga,
                 catatan: item.catatan || null,
-                // ✅ FIX BUG: Mencegah menu non-sate otomatis jadi level 0 (Pisah Sambal)
                 level_pedas: item.level_pedas !== undefined && item.level_pedas !== null ? Number(item.level_pedas) : null,
               };
             }),
           },
         },
         include: {
-          // ✅ FIX VERCEL 4.5MB LIMIT: Jangan ambil image base64, cukup data teks yang dibutuhkan kasir
-          items: { 
-            include: { 
-              menu: {
-                select: { id: true, nama: true, harga: true }
-              } 
-            } 
-          },
+          items: { include: { menu: { select: { id: true, nama: true, harga: true } } } },
         },
-      });
+      })
+    );
 
-      return transaksi;
-    });
+    // 4. EKSEKUSI SEMUA SEKALIGUS KE DATABASE (1 Kali Jalan = Tidak Akan Timeout!)
+    const results = await prisma.$transaction(prismaOperations);
+    
+    // Hasil yang kita kirim ke Frontend adalah elemen terakhir (transaksi.create)
+    const newTransaksi = results[results.length - 1];
 
     return NextResponse.json(newTransaksi, { status: 201 });
+
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
-    const isStock = msg.includes('Stok');
-    console.error('❌ Error POST transaksi:', error);
+    console.error('❌ Error POST:', msg);
     return NextResponse.json(
-      { error: isStock ? msg : 'Gagal membuat transaksi', details: msg },
-      { status: isStock ? 409 : 500 }
+      { error: msg.includes('Stok') ? msg : 'Gagal membuat transaksi', details: msg },
+      { status: msg.includes('Stok') ? 409 : 500 }
     );
   }
 }
