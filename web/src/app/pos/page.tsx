@@ -17,11 +17,9 @@ import {
   Printer,
   CheckCircle2,
   Receipt,
-  Download,
   Package,
   ChefHat,
   Search,
-  SlidersHorizontal,
   Users,
   Calendar,
   CalendarDays,
@@ -32,14 +30,13 @@ import {
   Building2,
   ChevronDown,
   AlertTriangle,
-  RefreshCw,
   Utensils,
-  Minus,
 } from "lucide-react";
 
 // --- TYPES ---
 type StatusPesanan = "PENDING" | "PROCESSING" | "UNPAID" | "COMPLETED";
 type MetodePembayaran = "CASH" | "EWALLET";
+
 interface MenuItem {
   id: number;
   nama: string;
@@ -49,6 +46,7 @@ interface MenuItem {
   kategori: string;
   stok: number;
 }
+
 interface OrderItem {
   id: number;
   menu: MenuItem;
@@ -57,6 +55,7 @@ interface OrderItem {
   level_pedas?: number | null;
   catatan?: string | null;
 }
+
 interface Order {
   id: number;
   nama_pelanggan: string;
@@ -70,6 +69,7 @@ interface Order {
   kembalian?: number;
   items: OrderItem[];
 }
+
 interface CabangInfo {
   id: number;
   nama_cabang: string;
@@ -77,6 +77,7 @@ interface CabangInfo {
   telepon?: string | null;
   link_maps?: string | null;
 }
+
 interface StockItem {
   id: number;
   nama: string;
@@ -119,18 +120,166 @@ const COLUMNS = [
   },
 ];
 
+// --- KOMPONEN KARTU STATIS (DIPINDAH KELUAR AGAR TIDAK REMOUNT SAAT REFRESH) ---
+interface OrderCardProps {
+  order: Order;
+  col: any;
+  onNextStatus: (order: Order) => void;
+  isLoading: boolean;
+}
+
+const OrderCard = ({ order, col, onNextStatus, isLoading }: OrderCardProps) => {
+  const isLastStatus = order.status === "UNPAID";
+  
+  // --- SCROLL PRESERVATION LOGIC ---
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollPosition = useRef(0);
+
+  // Kembalikan posisi scroll setiap kali komponen update
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollPosition.current;
+    }
+  });
+
+  return (
+    <div className="group relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all duration-300 shadow-xl overflow-hidden">
+      <div
+        className={`absolute -top-10 -right-10 w-24 h-24 bg-gradient-to-br ${col.accent} rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity`}
+      />
+
+      <div className="flex justify-between items-start mb-4 relative z-10">
+        <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span
+              className={`text-[10px] font-black px-2 py-0.5 rounded bg-gradient-to-r ${col.accent} text-white shadow-sm`}
+            >
+              #{order.id}
+            </span>
+            <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
+              <Clock size={10} />{" "}
+              {new Date(order.tanggal).toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </div>
+          <h3 className="text-sm font-bold text-white truncate max-w-[150px]">
+            {order.nama_pelanggan}
+          </h3>
+        </div>
+        <div
+          className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl ${col.bg} border ${col.border} ${col.shadow}`}
+        >
+          <span className="text-[10px] text-gray-400 font-medium -mb-1">
+            Meja
+          </span>
+          <span className={`text-lg font-black ${col.text}`}>
+            {order.nomor_meja}
+          </span>
+        </div>
+      </div>
+
+      {/* Container Scroll dengan Ref & OnScroll */}
+      <div
+        ref={scrollContainerRef}
+        onScroll={() => {
+          if (scrollContainerRef.current) {
+            scrollPosition.current = scrollContainerRef.current.scrollTop;
+          }
+        }}
+        className="space-y-3 mb-4 relative z-10 max-h-[200px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
+      >
+        {order.items?.map((item) => (
+          <div key={item.id} className="flex flex-col text-sm">
+            <div className="flex justify-between items-start text-white/90 font-medium">
+              <div className="flex gap-2">
+                <span className={`font-bold ${col.text}`}>
+                  {item.jumlah}x
+                </span>
+                <span className="text-gray-300 leading-tight pr-2">
+                  {item.menu?.nama}
+                </span>
+              </div>
+            </div>
+
+            {((item.level_pedas !== null && item.level_pedas !== undefined) ||
+              item.catatan) && (
+              <div className="flex flex-wrap gap-1 mt-1.5 ml-6 mb-1">
+                {item.level_pedas !== null && item.level_pedas !== undefined && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? "bg-orange-500/20 text-orange-400" : "bg-red-500/20 text-red-400"}`}
+                  >
+                    {item.level_pedas > 0 ? (
+                      <>
+                        <Flame size={10} /> Level {item.level_pedas}
+                      </>
+                    ) : (
+                      "Pisah Sambal"
+                    )}
+                  </span>
+                )}
+                {item.catatan && (
+                  <span className="text-[10px] text-gray-400 italic break-all max-w-[150px] line-clamp-1 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">
+                    "{item.catatan}"
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-end justify-between pt-3 border-t border-white/10 relative z-10">
+        <div>
+          <p className="text-[9px] text-gray-500 font-medium uppercase tracking-wider mb-0.5">
+            Total
+          </p>
+          <p className="text-sm font-bold text-white tracking-tight">
+            Rp {order.total_harga.toLocaleString("id-ID")}
+          </p>
+        </div>
+
+        <button
+          onClick={() => onNextStatus(order)}
+          disabled={isLoading}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95 ${
+            isLoading
+              ? "bg-white/5 text-gray-500 cursor-not-allowed"
+              : `bg-gradient-to-r ${col.accent} text-white hover:scale-105`
+          }`}
+        >
+          {isLoading ? (
+            <Loader2 className="animate-spin" size={14} />
+          ) : isLastStatus ? (
+            <>
+              <Banknote size={14} /> Bayar
+            </>
+          ) : (
+            <>
+              Proses <ChevronRight size={14} />
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export default function CashierDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"overview" | "board" | "history" | "stock">("overview");
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "board" | "history" | "stock"
+  >("overview");
   const [orders, setOrders] = useState<Order[]>([]);
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [loadingOrderId, setLoadingOrderId] = useState<number | null>(null);
-  const [cashierName, setCashierName] = useState(" ");
+  const [cashierName, setCashierName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
-  const [uangDiterima, setUangDiterima] = useState(" ");
+  const [uangDiterima, setUangDiterima] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   // --- STATE CABANG BARU ---
@@ -140,13 +289,9 @@ export default function CashierDashboard() {
   // --- STATE STOCK BARU ---
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [isLoadingStock, setIsLoadingStock] = useState(true);
-  const [stockSearchQuery, setStockSearchQuery] = useState(" ");
+  const [stockSearchQuery, setStockSearchQuery] = useState("");
   const [stockCategoryFilter, setStockCategoryFilter] = useState("All");
   const stockCategories = ["All", "Sate", "Karbo", "Camilan", "Minuman"];
-
-  // --- SCROLL PRESERVATION REFS (KOLOM KANBAN) ---
-  const columnScrollRefs = useRef<(HTMLDivElement | null)[]>([null, null, null]);
-  const columnScrollPositions = useRef<number[]>([0, 0, 0]);
 
   // Kembalian dihitung secara real-time
   const kembalian =
@@ -184,7 +329,7 @@ export default function CashierDashboard() {
             stok: item.stok ?? 0,
             harga: item.harga,
             image: item.image,
-          })),
+          }))
         );
       }
     } catch (error) {
@@ -227,7 +372,7 @@ export default function CashierDashboard() {
         router.push("/login");
       }
     };
-    // FETCH LIST CABANG
+    
     const fetchCabang = async () => {
       try {
         const res = await fetch("/api/cabang");
@@ -235,7 +380,6 @@ export default function CashierDashboard() {
           const data = await res.json();
           const branchList = Array.isArray(data) ? data : [data];
           setBranches(branchList);
-          // Auto select cabang pertama jika ada
           if (branchList.length > 0) {
             setSelectedCabangId(branchList[0].id);
           }
@@ -250,64 +394,36 @@ export default function CashierDashboard() {
     fetchStock();
   }, [router]);
 
-  // --- AUTO REFRESH ORDERS & STOCK EVERY 5 SECONDS SECARA BACKGROUND (TANPA ANIMASI) ---
+  // --- AUTO REFRESH ORDERS & STOCK EVERY 5 SECONDS SECARA BACKGROUND ---
   useEffect(() => {
     fetchOrders();
-    fetchStock(); // Refresh stock/menu data to sync with admin deletions
+    fetchStock();
     const interval = setInterval(() => {
       fetchOrders();
-      fetchStock(); // Auto refresh stock/menu every 5 seconds secara statis
+      fetchStock();
     }, 5000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // --- RESTORE SCROLL POSITION AFTER ORDERS UPDATE (MENCEGAH RESET SAAT AUTO REFRESH) ---
-  useEffect(() => {
-    columnScrollRefs.current.forEach((ref, i) => {
-      if (ref) ref.scrollTop = columnScrollPositions.current[i];
-    });
-  });
-
   // --- STATISTIK KALKULASI ---
   const today = new Date();
-  const startOfToday = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate(),
-  ).getTime();
-  const startOfWeek = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate() - today.getDay(),
-  ).getTime();
-  const startOfMonth = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    1,
-  ).getTime();
-  const todayCompleted = historyOrders.filter(
-    (o) => new Date(o.tanggal).getTime() >= startOfToday,
-  );
-  const weekCompleted = historyOrders.filter(
-    (o) => new Date(o.tanggal).getTime() >= startOfWeek,
-  );
-  const monthCompleted = historyOrders.filter(
-    (o) => new Date(o.tanggal).getTime() >= startOfMonth,
-  );
-  const revenueToday = todayCompleted.reduce(
-    (sum, o) => sum + o.total_harga,
-    0,
-  );
-  const revenueMonth = monthCompleted.reduce(
-    (sum, o) => sum + o.total_harga,
-    0,
-  );
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const startOfWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay()).getTime();
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
+  
+  const todayCompleted = historyOrders.filter((o) => new Date(o.tanggal).getTime() >= startOfToday);
+  const weekCompleted = historyOrders.filter((o) => new Date(o.tanggal).getTime() >= startOfWeek);
+  const monthCompleted = historyOrders.filter((o) => new Date(o.tanggal).getTime() >= startOfMonth);
+  
+  const revenueToday = todayCompleted.reduce((sum, o) => sum + o.total_harga, 0);
+  const revenueMonth = monthCompleted.reduce((sum, o) => sum + o.total_harga, 0);
 
   const handleNextStatus = async (order: Order) => {
     let nextStatus: StatusPesanan | null = null;
     if (order.status === "PENDING") nextStatus = "PROCESSING";
     else if (order.status === "PROCESSING") nextStatus = "UNPAID";
+    
     if (order.status === "UNPAID") {
       setSelectedOrder(order);
       setIsModalOpen(true);
@@ -317,7 +433,7 @@ export default function CashierDashboard() {
     if (!nextStatus) return;
 
     setOrders((prev) =>
-      prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o)),
+      prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o))
     );
     setLoadingOrderId(order.id);
 
@@ -331,9 +447,7 @@ export default function CashierDashboard() {
       await fetchOrders();
     } catch (err) {
       setOrders((prev) =>
-        prev.map((o) =>
-          o.id === order.id ? { ...o, status: order.status } : o,
-        ),
+        prev.map((o) => (o.id === order.id ? { ...o, status: order.status } : o))
       );
     } finally {
       setLoadingOrderId(null);
@@ -342,11 +456,9 @@ export default function CashierDashboard() {
 
   const handleFinalSubmit = async () => {
     if (!selectedOrder) return;
-    const uangBayarVal =
-      paymentMethod === "CASH"
-        ? Number(uangDiterima)
-        : selectedOrder.total_harga;
+    const uangBayarVal = paymentMethod === "CASH" ? Number(uangDiterima) : selectedOrder.total_harga;
     const kembalianVal = paymentMethod === "CASH" ? kembalian : 0;
+
     try {
       const res = await fetch(`/api/transaksi/${selectedOrder.id}`, {
         method: "PATCH",
@@ -370,11 +482,10 @@ export default function CashierDashboard() {
                 uang_bayar: uangBayarVal,
                 kembalian: kembalianVal,
               }
-            : null,
+            : null
         );
         setShowReceipt(true);
         await fetchOrders();
-        // --- UPDATE STOCK SETELAH PEMBAYARAN BERHASIL ---
         await updateStockAfterOrder(selectedOrder.items);
       }
     } catch (err) {
@@ -403,6 +514,7 @@ export default function CashierDashboard() {
   const handlePrintHistory = () => {
     const printWindow = window.open("", "_blank", "width=1000,height=700");
     if (!printWindow) return alert("Izinkan popup untuk mencetak PDF");
+    
     const grandTotal = historyOrders.reduce((sum, o) => sum + o.total_harga, 0);
     const dateStr = new Date().toLocaleDateString("id-ID", {
       weekday: "long",
@@ -410,6 +522,7 @@ export default function CashierDashboard() {
       month: "long",
       day: "numeric",
     });
+    
     const rowsHtml = historyOrders
       .map(
         (h) => `
@@ -422,7 +535,7 @@ export default function CashierDashboard() {
         <td class="center">${h.metode_pembayaran}</td>
         <td class="right">Rp ${h.total_harga.toLocaleString("id-ID")}</td>
       </tr>
-  `,
+  `
       )
       .join("");
 
@@ -443,7 +556,7 @@ export default function CashierDashboard() {
         .bold { font-weight:  bold; }
         .total-row { background-color: #f8f9fa; }
         .total-row td { font-size: 16px; font-weight: bold; border-top: 2px solid #333; }
-        .footer { text-align: c enter; font-size: 12px; color: #888; margin-top: 50px; }
+        .footer { text-align: center; font-size: 12px; color: #888; margin-top: 50px; }
         </style>
       </head>
       <body>
@@ -488,9 +601,10 @@ export default function CashierDashboard() {
     if (!selectedOrder) return;
     const printWindow = window.open("", "_blank", "width=400,height=600");
     if (!printWindow) return alert("Izinkan popup untuk mencetak struk");
-    const activeCabang =
-      branches.find((b) => b.id === selectedCabangId) || branches[0];
+    
+    const activeCabang = branches.find((b) => b.id === selectedCabangId) || branches[0];
     const dateStr = new Date(selectedOrder.tanggal).toLocaleString("id-ID");
+    
     const itemsHtml = selectedOrder.items
       .map(
         (item) => `
@@ -501,7 +615,7 @@ export default function CashierDashboard() {
           <span>${(item.jumlah * item.harga_satuan).toLocaleString("id-ID")}</span>
         </div>
       </div>
-  `,
+  `
       )
       .join("");
 
@@ -515,13 +629,13 @@ export default function CashierDashboard() {
           font-family: 'Courier New', Courier, monospace; 
           width: 300px;
           margin: 20px auto; 
-          color: #00 0; 
+          color: #000; 
           font-size: 12px; 
           background: #fff;
         }
         .center { text-align: center; }
         .right { text-align: right; }
-        .left { text-align: left ; }
+        .left { text-align: left; }
         .flex { display: flex; justify-content: space-between; }
         .bold { font-weight: bold; }
         .dashed-line { border-bottom: 1px dashed #000; margin: 8px 0; }
@@ -529,7 +643,7 @@ export default function CashierDashboard() {
         p { margin: 2px 0; }
         .item { margin-bottom: 6px; }
         .item-name { margin-bottom: 2px; }
-        .total-sectio n { margin-top: 10px; font-size: 14px; }
+        .total-section { margin-top: 10px; font-size: 14px; }
         .footer { margin-top: 20px; font-size: 11px; }
         </style>
       </head>
@@ -599,148 +713,9 @@ export default function CashierDashboard() {
     printWindow.document.close();
   };
 
-  // --- KOMPONEN KARTU STATIS (TANPA ANIMASI) ---
-  const OrderCard = ({ order, col }: { order: Order; col: any }) => {
-    const isLoading = loadingOrderId === order.id;
-    const isLastStatus = order.status === "UNPAID";
-    
-    // --- SCROLL PRESERVATION UNTUK CARD ---
-    const cardScrollRef = useRef<HTMLDivElement>(null);
-    const cardScrollPos = useRef(0);
-    useEffect(() => {
-      if (cardScrollRef.current) cardScrollRef.current.scrollTop = cardScrollPos.current;
-    });
-
-    return (
-      <div className="group relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all duration-300 shadow-xl overflow-hidden">
-        <div
-          className={`absolute -top-10 -right-10 w-24 h-24 bg-gradient-to-br ${col.accent} rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity`}
-        />
-
-        <div className="flex justify-between items-start mb-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span
-                className={`text-[10px] font-black px-2 py-0.5 rounded bg-gradient-to-r ${col.accent} text-white shadow-sm`}
-              >
-                #{order.id}
-              </span>
-              <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
-                <Clock size={10} />{" "}
-                {new Date(order.tanggal).toLocaleTimeString("id-ID", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-            </div>
-            <h3 className="text-sm font-bold text-white truncate max-w-[150px]">
-              {order.nama_pelanggan}
-            </h3>
-          </div>
-          <div
-            className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl ${col.bg} border ${col.border} ${col.shadow}`}
-          >
-            <span className="text-[10px] text-gray-400 font-medium -mb-1">
-              Meja
-            </span>
-            <span className={`text-lg font-black ${col.text}`}>
-              {order.nomor_meja}
-            </span>
-          </div>
-        </div>
-
-        {/* Tambahan batas tinggi (max-h)  & fitur scroll (overflow-y-auto) dengan desain scrollbar tipis */}
-        <div
-          ref={cardScrollRef}
-          onScroll={() => {
-            if (cardScrollRef.current) cardScrollPos.current = cardScrollRef.current.scrollTop;
-          }}
-          className="space-y-3 mb-4 relative z-10 max-h-[200px] overflow-y-auto pr-2 [ &::-webkit-scrollbar]:w-1 [ &::-webkit-scrollbar-track]:bg-transparent [ &::-webkit-scrollbar-thumb]:bg-white/10 [ &::-webkit-scrollbar-thumb]:rounded-full hover:[ &::-webkit-scrollbar-thumb]:bg-white/20"
-        >
-          {order.items?.map((item) => (
-            <div key={item.id} className="flex flex-col text-sm">
-              <div className="flex justify-between items-start text-white/90 font-medium">
-                <div className="flex gap-2">
-                  <span className={`font-bold ${col.text}`}>
-                    {item.jumlah}x
-                  </span>
-                  <span className="text-gray-300 leading-tight pr-2">
-                    {item.menu?.nama}
-                  </span>
-                </div>
-              </div>
-
-              {/* --- LEVEL PEDAS  & CATATAN PADA CARD --- */}
-              {((item.level_pedas !== null && item.level_pedas !== undefined) ||
-                item.catatan) && (
-                <div className="flex flex-wrap gap-1 mt-1.5 ml-6 mb-1">
-                  {item.level_pedas !== null &&
-                    item.level_pedas !== undefined && (
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? "bg-orange-500/20 text-orange-400" : "bg-red-500/20 text-red-400"}`}
-                      >
-                        {item.level_pedas > 0 ? (
-                          <>
-                            <Flame size={10} /> Level {item.level_pedas}
-                          </>
-                        ) : (
-                          "Pisah Sambal"
-                        )}
-                      </span>
-                    )}
-                  {item.catatan && (
-                    <span className="text-[10px] text-gray-400 italic break-all max-w-[150px] line-clamp-1 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">
-                      "{item.catatan}"
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="flex items-end justify-between pt-3 border-t border-white/10 relative z-10">
-          <div>
-            <p className="text-[9px] text-gray-500 font-medium uppercase tracking-wider mb-0.5">
-              Total
-            </p>
-            <p className="text-sm font-bold text-white tracking-tight">
-              Rp {order.total_harga.toLocaleString("id-ID")}
-            </p>
-          </div>
-
-          <button
-            onClick={() => handleNextStatus(order)}
-            disabled={isLoading}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95  ${
-              isLoading
-                ? "bg-white/5 text-gray-500 cursor-not-allowed"
-                : `bg-gradient-to-r ${col.accent} text-white hover:scale-105`
-            }`}
-          >
-            {isLoading ? (
-              <Loader2 className="animate-spin" size={14} />
-            ) : isLastStatus ? (
-              <>
-                <Banknote size={14} /> Bayar
-              </>
-            ) : (
-              <>
-                Proses <ChevronRight size={14} />
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   const filteredStockItems = stockItems.filter((item) => {
-    const matchesSearch = item.nama
-      .toLowerCase()
-      .includes(stockSearchQuery.toLowerCase());
-    const matchesCategory =
-      stockCategoryFilter === "All" || item.kategori === stockCategoryFilter;
+    const matchesSearch = item.nama.toLowerCase().includes(stockSearchQuery.toLowerCase());
+    const matchesCategory = stockCategoryFilter === "All" || item.kategori === stockCategoryFilter;
     return matchesSearch && matchesCategory;
   });
 
@@ -770,9 +745,7 @@ export default function CashierDashboard() {
               <menu.icon
                 size={20}
                 className={`transition-transform ${
-                  activeTab === menu.id
-                    ? "scale-110 text-cyan-400"
-                    : "group-hover:scale-110"
+                  activeTab === menu.id ? "scale-110 text-cyan-400" : "group-hover:scale-110"
                 }`}
               />
               <span className="text-[9px] font-bold tracking-wide">
@@ -789,7 +762,6 @@ export default function CashierDashboard() {
           ))}
         </nav>
 
-        {/* Kasir info + Logout */}
         <div className="w-full px-3 mt-auto">
           <div className="flex flex-col items-center gap-1 mb-4">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-xs">
@@ -817,7 +789,6 @@ export default function CashierDashboard() {
 
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
-        {/* HEADER */}
         <header className="h-20 px-8 flex items-center justify-between border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl z-10 sticky top-0">
           <div>
             <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
@@ -829,7 +800,6 @@ export default function CashierDashboard() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* DROPDOWN PILIH CABANG */}
             {branches.length > 0 && (
               <div className="relative group flex items-center bg-white/5 border border-white/10 rounded-xl px-4 py-2 gap-3 hover:bg-white/10 transition-colors cursor-pointer">
                 <Building2 size={16} className="text-cyan-400" />
@@ -839,19 +809,12 @@ export default function CashierDashboard() {
                   className="bg-transparent text-sm font-bold text-white outline-none cursor-pointer appearance-none pr-4"
                 >
                   {branches.map((b) => (
-                    <option
-                      key={b.id}
-                      value={b.id}
-                      className="bg-zinc-900 text-white"
-                    >
+                    <option key={b.id} value={b.id} className="bg-zinc-900 text-white">
                       {b.nama_cabang}
                     </option>
                   ))}
                 </select>
-                <ChevronDown
-                  size={14}
-                  className="text-gray-400 absolute right-3 pointer-events-none"
-                />
+                <ChevronDown size={14} className="text-gray-400 absolute right-3 pointer-events-none" />
               </div>
             )}
 
@@ -872,13 +835,11 @@ export default function CashierDashboard() {
           </div>
         </header>
 
-        {/* CONTENT AREA */}
         <div className="flex-1 p-6 md:p-8 overflow-y-auto custom-scrollbar">
           {/* --- VIEW: OVERVIEW / STATISTIK --- */}
           {activeTab === "overview" && (
             <div className="space-y-8 max-w-6xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Card 1: Pelanggan Hari Ini */}
                 <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] relative overflow-hidden group hover:bg-white/10 transition-colors">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-colors" />
                   <div className="flex justify-between items-start mb-4">
@@ -891,13 +852,10 @@ export default function CashierDashboard() {
                   </h3>
                   <p className="text-4xl font-black text-white">
                     {todayCompleted.length}{" "}
-                    <span className="text-sm font-medium text-gray-500">
-                      orang
-                    </span>
+                    <span className="text-sm font-medium text-gray-500">orang</span>
                   </p>
                 </div>
 
-                {/* Card 2: Pelanggan Minggu Ini */}
                 <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] relative overflow-hidden group hover:bg-white/10 transition-colors">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-colors" />
                   <div className="flex justify-between items-start mb-4">
@@ -910,13 +868,10 @@ export default function CashierDashboard() {
                   </h3>
                   <p className="text-4xl font-black text-white">
                     {weekCompleted.length}{" "}
-                    <span className="text-sm font-medium text-gray-500">
-                      orang
-                    </span>
+                    <span className="text-sm font-medium text-gray-500">orang</span>
                   </p>
                 </div>
 
-                {/* Card 3: Pelanggan Bulan Ini */}
                 <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] relative overflow-hidden group hover:bg-white/10 transition-colors">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-colors" />
                   <div className="flex justify-between items-start mb-4">
@@ -929,9 +884,7 @@ export default function CashierDashboard() {
                   </h3>
                   <p className="text-4xl font-black text-white">
                     {monthCompleted.length}{" "}
-                    <span className="text-sm font-medium text-gray-500">
-                      orang
-                    </span>
+                    <span className="text-sm font-medium text-gray-500">orang</span>
                   </p>
                 </div>
               </div>
@@ -980,10 +933,10 @@ export default function CashierDashboard() {
             </div>
           )}
 
-          {/* --- VIEW: KANBAN BOARD (DIBUAT STATIS/TANPA ANIMASI) --- */}
+          {/* --- VIEW: KANBAN BOARD --- */}
           {activeTab === "board" && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-[600px]">
-              {COLUMNS.map((col, i) => {
+              {COLUMNS.map((col) => {
                 const colOrders = orders.filter((o) => o.status === col.id);
                 return (
                   <div
@@ -1006,14 +959,7 @@ export default function CashierDashboard() {
                       </span>
                     </div>
 
-                    <div
-                      ref={el => columnScrollRefs.current[i] = el}
-                      onScroll={(e) => {
-                        const target = e.target as HTMLDivElement;
-                        columnScrollPositions.current[i] = target.scrollTop;
-                      }}
-                      className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full"
-                    >
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
                       {colOrders.length === 0 ? (
                         <div className="h-32 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-gray-600">
                           <col.icon className="mb-2 opacity-20" size={24} />
@@ -1024,9 +970,11 @@ export default function CashierDashboard() {
                       ) : (
                         colOrders.map((o) => (
                           <OrderCard
-                            key={`order-${o.id}`}
+                            key={o.id}
                             order={o}
                             col={col}
+                            onNextStatus={handleNextStatus}
+                            isLoading={loadingOrderId === o.id}
                           />
                         ))
                       )}
@@ -1040,12 +988,10 @@ export default function CashierDashboard() {
           {/* --- VIEW: STOCK --- */}
           {activeTab === "stock" && (
             <div className="h-full flex flex-col bg-white/5 border border-white/10 rounded-[2rem] overflow-hidden backdrop-blur-md">
-              {/* Stock Header */}
               <div className="px-6 py-4 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/[0.02]">
                 <div>
                   <h2 className="font-bold text-lg text-white flex items-center gap-2">
-                    <Package className="text-cyan-400" size={20} /> Manajemen
-                    Stok
+                    <Package className="text-cyan-400" size={20} /> Manajemen Stok
                   </h2>
                   <p className="text-gray-400 text-[11px] mt-0.5">
                     Pantau sisa bahan dan menu secara real-time
@@ -1053,10 +999,7 @@ export default function CashierDashboard() {
                 </div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
                   <div className="relative flex-1 md:w-48">
-                    <Search
-                      size={14}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-                    />
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                     <input
                       type="text"
                       placeholder="Cari menu..."
@@ -1065,11 +1008,9 @@ export default function CashierDashboard() {
                       className="w-full bg-black border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white focus:border-cyan-500 focus:outline-none transition-colors"
                     />
                   </div>
-                  {/* Tombol Refresh Manual dihilangkan untuk kesan fully statis realtime */}
                 </div>
               </div>
 
-              {/* Kategori Filter */}
               <div className="px-6 py-3 border-b border-white/10 flex gap-2 overflow-x-auto scrollbar-hide bg-black/20">
                 {stockCategories.map((cat) => (
                   <button
@@ -1086,7 +1027,6 @@ export default function CashierDashboard() {
                 ))}
               </div>
 
-              {/* Table List - REAL DATA */}
               <div className="flex-1 overflow-auto custom-scrollbar p-6">
                 {isLoadingStock ? (
                   <div className="flex flex-col items-center justify-center h-40 text-gray-500 gap-3">
@@ -1096,26 +1036,16 @@ export default function CashierDashboard() {
                 ) : filteredStockItems.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-40 text-gray-600 gap-3">
                     <Package size={40} className="opacity-20" />
-                    <p className="text-sm font-medium">
-                      Tidak ada menu ditemukan
-                    </p>
+                    <p className="text-sm font-medium">Tidak ada menu ditemukan</p>
                   </div>
                 ) : (
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="text-[10px] text-gray-500 uppercase border-b border-white/10">
-                        <th className="pb-3 font-bold tracking-wider">
-                          Nama Menu
-                        </th>
-                        <th className="pb-3 font-bold tracking-wider text-center">
-                          Kategori
-                        </th>
-                        <th className="pb-3 font-bold tracking-wider text-center">
-                          Sisa Stok
-                        </th>
-                        <th className="pb-3 font-bold tracking-wider text-center">
-                          Status
-                        </th>
+                        <th className="pb-3 font-bold tracking-wider">Nama Menu</th>
+                        <th className="pb-3 font-bold tracking-wider text-center">Kategori</th>
+                        <th className="pb-3 font-bold tracking-wider text-center">Sisa Stok</th>
+                        <th className="pb-3 font-bold tracking-wider text-center">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -1124,33 +1054,19 @@ export default function CashierDashboard() {
                         const isOutOfStock = item.stok === 0;
 
                         return (
-                          <tr
-                            key={item.id}
-                            className="hover:bg-white/5 transition-colors"
-                          >
+                          <tr key={item.id} className="hover:bg-white/5 transition-colors">
                             <td className="py-3">
                               <div className="flex items-center gap-3">
                                 {item.image ? (
-                                  <img
-                                    src={item.image}
-                                    alt={item.nama}
-                                    className="w-8 h-8 rounded-md object-cover border border-white/10"
-                                  />
+                                  <img src={item.image} alt={item.nama} className="w-8 h-8 rounded-md object-cover border border-white/10" />
                                 ) : (
                                   <div className="w-8 h-8 rounded-md bg-white/5 flex items-center justify-center">
-                                    <Utensils
-                                      size={14}
-                                      className="text-gray-500"
-                                    />
+                                    <Utensils size={14} className="text-gray-500" />
                                   </div>
                                 )}
                                 <div>
-                                  <p className="font-bold text-white text-xs">
-                                    {item.nama}
-                                  </p>
-                                  <p className="text-[10px] text-gray-500">
-                                    Rp {item.harga.toLocaleString("id-ID")}
-                                  </p>
+                                  <p className="font-bold text-white text-xs">{item.nama}</p>
+                                  <p className="text-[10px] text-gray-500">Rp {item.harga.toLocaleString("id-ID")}</p>
                                 </div>
                               </div>
                             </td>
@@ -1160,15 +1076,7 @@ export default function CashierDashboard() {
                               </span>
                             </td>
                             <td className="py-3 text-center">
-                              <span
-                                className={`font-black text-sm ${
-                                  isOutOfStock
-                                    ? "text-red-500"
-                                    : isLowStock
-                                      ? "text-amber-400"
-                                      : "text-emerald-400"
-                                }`}
-                              >
+                              <span className={`font-black text-sm ${isOutOfStock ? "text-red-500" : isLowStock ? "text-amber-400" : "text-emerald-400"}`}>
                                 {item.stok}
                               </span>
                             </td>
@@ -1203,8 +1111,7 @@ export default function CashierDashboard() {
               <div className="p-6 md:p-8 border-b border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/[0.02]">
                 <div>
                   <h2 className="text-xl font-black text-white flex items-center gap-3">
-                    <History className="text-cyan-400" size={24} /> Riwayat
-                    Transaksi
+                    <History className="text-cyan-400" size={24} /> Riwayat Transaksi
                   </h2>
                   <p className="text-gray-400 text-xs mt-1 font-medium">
                     Semua pesanan yang telah selesai dan dibayar.
@@ -1222,30 +1129,17 @@ export default function CashierDashboard() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="text-xs text-gray-500 uppercase border-b border-white/10 bg-white/[0.01]">
-                      <th className="p-5 font-bold tracking-wider rounded-tl-2xl">
-                        ID
-                      </th>
-                      <th className="p-5 font-bold tracking-wider">
-                        Tanggal  & Waktu
-                      </th>
-                      <th className="p-5 font-bold tracking-wider">
-                        Pelanggan
-                      </th>
-                      <th className="p-5 font-bold tracking-wider text-center">
-                        Meja
-                      </th>
+                      <th className="p-5 font-bold tracking-wider rounded-tl-2xl">ID</th>
+                      <th className="p-5 font-bold tracking-wider">Tanggal  & Waktu</th>
+                      <th className="p-5 font-bold tracking-wider">Pelanggan</th>
+                      <th className="p-5 font-bold tracking-wider text-center">Meja</th>
                       <th className="p-5 font-bold tracking-wider">Kasir</th>
-                      <th className="p-5 font-bold tracking-wider text-right rounded-tr-2xl">
-                        Total
-                      </th>
+                      <th className="p-5 font-bold tracking-wider text-right rounded-tr-2xl">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {historyOrders.map((h) => (
-                      <tr
-                        key={h.id}
-                        className="hover:bg-white/5 transition-colors group"
-                      >
+                      <tr key={h.id} className="hover:bg-white/5 transition-colors group">
                         <td className="p-5">
                           <span className="font-black text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-lg text-xs border border-cyan-500/20">
                             #{h.id}
@@ -1263,17 +1157,13 @@ export default function CashierDashboard() {
                             {new Date(h.tanggal).toLocaleString("id-ID")}
                           </div>
                         </td>
-                        <td className="p-5 font-bold text-white text-xs">
-                          {h.nama_pelanggan}
-                        </td>
+                        <td className="p-5 font-bold text-white text-xs">{h.nama_pelanggan}</td>
                         <td className="p-5 text-center">
                           <span className="bg-white/10 border border-white/10 px-3 py-1 rounded-lg text-xs font-bold text-gray-300">
                             {h.nomor_meja}
                           </span>
                         </td>
-                        <td className="p-5 text-gray-400 text-xs">
-                          {h.kasir_nama || "-"}
-                        </td>
+                        <td className="p-5 text-gray-400 text-xs">{h.kasir_nama || "-"}</td>
                         <td className="p-5 text-right font-black text-white text-sm">
                           Rp {h.total_harga.toLocaleString("id-ID")}
                         </td>
@@ -1300,9 +1190,7 @@ export default function CashierDashboard() {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className={`w-full ${
-                showReceipt ? "max-w-md" : "max-w-4xl"
-              } bg-zinc-950 border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl relative`}
+              className={`w-full ${showReceipt ? "max-w-md" : "max-w-4xl"} bg-zinc-950 border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl relative`}
             >
               {!showReceipt && (
                 <button
@@ -1321,43 +1209,33 @@ export default function CashierDashboard() {
                         <Receipt className="text-cyan-400" /> Detail Pesanan
                       </h2>
                       <p className="text-sm text-gray-400 font-medium">
-                        Order #{selectedOrder.id} •{" "}
-                        {selectedOrder.nama_pelanggan} • Meja{" "}
-                        {selectedOrder.nomor_meja}
+                        Order #{selectedOrder.id} • {selectedOrder.nama_pelanggan} • Meja {selectedOrder.nomor_meja}
                       </p>
                     </div>
 
                     <div className="flex-1 overflow-y-auto custom-scrollbar mb-6 bg-white/5 border border-white/10 rounded-2xl p-4">
                       <div className="space-y-4 pr-2">
                         {selectedOrder.items.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex justify-between items-start"
-                          >
+                          <div key={item.id} className="flex justify-between items-start">
                             <div>
                               <p className="font-bold text-sm text-white flex items-center gap-2">
                                 <span>{item.jumlah}x </span> {item.menu.nama}
                               </p>
-                              {/* --- LEVEL PEDAS  & CATATAN PADA MODAL --- */}
-                              {((item.level_pedas !== null &&
-                                item.level_pedas !== undefined) ||
-                                item.catatan) && (
+                              {((item.level_pedas !== null && item.level_pedas !== undefined) || item.catatan) && (
                                 <div className="flex flex-wrap gap-1 mt-1 ml-6 mb-1">
-                                  {item.level_pedas !== null &&
-                                    item.level_pedas !== undefined && (
-                                      <span
-                                        className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? "bg-orange-500/20 text-orange-400" : "bg-red-500/20 text-red-400"}`}
-                                      >
-                                        {item.level_pedas > 0 ? (
-                                          <>
-                                            <Flame size={10} /> Level{" "}
-                                            {item.level_pedas}
-                                          </>
-                                        ) : (
-                                          "Pisah Sambal"
-                                        )}
-                                      </span>
-                                    )}
+                                  {item.level_pedas !== null && item.level_pedas !== undefined && (
+                                    <span
+                                      className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? "bg-orange-500/20 text-orange-400" : "bg-red-500/20 text-red-400"}`}
+                                    >
+                                      {item.level_pedas > 0 ? (
+                                        <>
+                                          <Flame size={10} /> Level {item.level_pedas}
+                                        </>
+                                      ) : (
+                                        "Pisah Sambal"
+                                      )}
+                                    </span>
+                                  )}
                                   {item.catatan && (
                                     <span className="text-[10px] text-gray-400 italic break-all max-w-[200px] line-clamp-2">
                                       "{item.catatan}"
@@ -1370,10 +1248,7 @@ export default function CashierDashboard() {
                               </p>
                             </div>
                             <p className="font-bold text-sm text-white mt-1">
-                              Rp{" "}
-                              {(item.jumlah * item.harga_satuan).toLocaleString(
-                                "id-ID",
-                              )}
+                              Rp {(item.jumlah * item.harga_satuan).toLocaleString("id-ID")}
                             </p>
                           </div>
                         ))}
@@ -1382,18 +1257,12 @@ export default function CashierDashboard() {
 
                     <div className="mt-auto space-y-3 bg-white/5 border border-white/10 p-5 rounded-2xl">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400 font-medium">
-                          Subtotal
-                        </span>
-                        <span className="font-bold text-gray-300">
-                          Rp {selectedOrder.total_harga.toLocaleString("id-ID")}
-                        </span>
+                        <span className="text-gray-400 font-medium">Subtotal</span>
+                        <span className="font-bold text-gray-300">Rp {selectedOrder.total_harga.toLocaleString("id-ID")}</span>
                       </div>
                       <div className="h-px bg-white/10 w-full" />
                       <div className="flex justify-between items-center">
-                        <span className="text-white font-bold">
-                          Total Pembayaran
-                        </span>
+                        <span className="text-white font-bold">Total Pembayaran</span>
                         <span className="text-2xl font-black text-cyan-400 tracking-tight">
                           Rp {selectedOrder.total_harga.toLocaleString("id-ID")}
                         </span>
@@ -1403,21 +1272,15 @@ export default function CashierDashboard() {
 
                   <div className="lg:w-1/2 p-8 flex flex-col bg-zinc-950">
                     <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                      <CreditCard size={20} className="text-cyan-400" /> Proses
-                      Pembayaran
+                      <CreditCard size={20} className="text-cyan-400" /> Proses Pembayaran
                     </h3>
 
                     <div className="space-y-6 flex-1">
                       <div>
-                        <label className="text-xs font-bold text-gray-400 uppercase mb-3 block">
-                          Metode Pembayaran
-                        </label>
+                        <label className="text-xs font-bold text-gray-400 uppercase mb-3 block">Metode Pembayaran</label>
                         <div className="grid grid-cols-2 gap-4">
                           <button
-                            onClick={() => {
-                              setPaymentMethod("CASH");
-                              setUangDiterima("");
-                            }}
+                            onClick={() => { setPaymentMethod("CASH"); setUangDiterima(""); }}
                             className={`py-4 rounded-xl font-bold border flex flex-col items-center justify-center gap-2 transition-all ${
                               paymentMethod === "CASH"
                                 ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)]"
@@ -1427,10 +1290,7 @@ export default function CashierDashboard() {
                             <Banknote size={24} /> Uang Tunai
                           </button>
                           <button
-                            onClick={() => {
-                              setPaymentMethod("EWALLET");
-                              setUangDiterima("");
-                            }}
+                            onClick={() => { setPaymentMethod("EWALLET"); setUangDiterima(""); }}
                             className={`py-4 rounded-xl font-bold border flex flex-col items-center justify-center gap-2 transition-all ${
                               paymentMethod === "EWALLET"
                                 ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)]"
@@ -1451,44 +1311,30 @@ export default function CashierDashboard() {
                             className="overflow-hidden space-y-4"
                           >
                             <div>
-                              <label className="text-xs font-bold text-gray-400 uppercase mb-3 block mt-2">
-                                Uang Diterima
-                              </label>
+                              <label className="text-xs font-bold text-gray-400 uppercase mb-3 block mt-2">Uang Diterima</label>
                               <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">
-                                  Rp
-                                </span>
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">Rp</span>
                                 <input
                                   type="number"
                                   min={0}
                                   value={uangDiterima}
-                                  onChange={(e) =>
-                                    setUangDiterima(e.target.value)
-                                  }
+                                  onChange={(e) => setUangDiterima(e.target.value)}
                                   placeholder="0"
                                   className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-4 text-white font-bold text-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                               </div>
                               <div className="flex gap-2 mt-3 overflow-x-auto pb-2 scrollbar-hide">
-                                {[50000, 100000, 150000, 200000].map(
-                                  (amount) => (
-                                    <button
-                                      key={amount}
-                                      onClick={() =>
-                                        setUangDiterima(amount.toString())
-                                      }
-                                      className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold text-gray-300 whitespace-nowrap transition-colors"
-                                    >
-                                      {amount.toLocaleString("id-ID")}
-                                    </button>
-                                  ),
-                                )}
+                                {[50000, 100000, 150000, 200000].map((amount) => (
+                                  <button
+                                    key={amount}
+                                    onClick={() => setUangDiterima(amount.toString())}
+                                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold text-gray-300 whitespace-nowrap transition-colors"
+                                  >
+                                    {amount.toLocaleString("id-ID")}
+                                  </button>
+                                ))}
                                 <button
-                                  onClick={() =>
-                                    setUangDiterima(
-                                      selectedOrder.total_harga.toString(),
-                                    )
-                                  }
+                                  onClick={() => setUangDiterima(selectedOrder.total_harga.toString())}
                                   className="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 rounded-lg text-xs font-bold text-cyan-400 whitespace-nowrap transition-colors"
                                 >
                                   Uang Pas
@@ -1496,28 +1342,16 @@ export default function CashierDashboard() {
                               </div>
                             </div>
 
-                            <div
-                              className={`p-5 rounded-2xl border transition-all ${
-                                uangDiterima && !isCashValid
-                                  ? "bg-red-500/10 border-red-500/30"
-                                  : uangDiterima
-                                    ? "bg-emerald-500/10 border-emerald-500/30"
-                                    : "bg-white/5 border-white/10"
-                              }`}
-                            >
+                            <div className={`p-5 rounded-2xl border transition-all ${
+                              uangDiterima && !isCashValid ? "bg-red-500/10 border-red-500/30" : uangDiterima ? "bg-emerald-500/10 border-emerald-500/30" : "bg-white/5 border-white/10"
+                            }`}>
                               <div className="flex justify-between items-center mb-1">
-                                <span className="text-sm font-medium text-gray-400">
-                                  Kembalian
-                                </span>
+                                <span className="text-sm font-medium text-gray-400">Kembalian</span>
                                 {!isCashValid && uangDiterima && (
-                                  <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">
-                                    Uang Kurang!
-                                  </span>
+                                  <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">Uang Kurang!</span>
                                 )}
                               </div>
-                              <p
-                                className={`text-3xl font-black ${uangDiterima && !isCashValid ? "text-red-400" : uangDiterima ? "text-emerald-400" : "text-gray-500"}`}
-                              >
+                              <p className={`text-3xl font-black ${uangDiterima && !isCashValid ? "text-red-400" : uangDiterima ? "text-emerald-400" : "text-gray-500"}`}>
                                 Rp {kembalian.toLocaleString("id-ID")}
                               </p>
                             </div>
@@ -1531,13 +1365,8 @@ export default function CashierDashboard() {
                             <LayoutGrid size={24} />
                           </div>
                           <div>
-                            <p className="font-bold text-white text-sm">
-                              Pembayaran Non-Tunai
-                            </p>
-                            <p className="text-xs mt-1">
-                              Pastikan pelanggan sudah melakukan scan QRIS atau
-                              transfer sebelum menyelesaikan pesanan.
-                            </p>
+                            <p className="font-bold text-white text-sm">Pembayaran Non-Tunai</p>
+                            <p className="text-xs mt-1">Pastikan pelanggan sudah melakukan scan QRIS atau transfer sebelum menyelesaikan pesanan.</p>
                           </div>
                         </div>
                       )}
@@ -1560,25 +1389,17 @@ export default function CashierDashboard() {
                 <div className="p-8 md:p-12 text-center bg-zinc-950 flex flex-col items-center">
                   <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 relative">
                     <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping opacity-50" />
-                    <CheckCircle2
-                      size={48}
-                      className="text-emerald-400 relative z-10"
-                    />
+                    <CheckCircle2 size={48} className="text-emerald-400 relative z-10" />
                   </div>
-                  <h2 className="text-3xl font-black text-white mb-2">
-                    Pembayaran Berhasil!
-                  </h2>
+                  <h2 className="text-3xl font-black text-white mb-2">Pembayaran Berhasil!</h2>
                   <p className="text-gray-400 mb-8 max-w-sm text-sm leading-relaxed">
-                    Pesanan #{selectedOrder.id} atas nama{" "}
-                    {selectedOrder.nama_pelanggan} telah selesai.
+                    Pesanan #{selectedOrder.id} atas nama {selectedOrder.nama_pelanggan} telah selesai.
                   </p>
 
                   <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-5 mb-8 w-full max-w-sm text-left">
                     <div className="flex justify-between text-sm mb-3">
                       <span className="text-gray-400">Total Tagihan</span>
-                      <span className="font-bold text-white">
-                        Rp {selectedOrder.total_harga.toLocaleString("id-ID")}
-                      </span>
+                      <span className="font-bold text-white">Rp {selectedOrder.total_harga.toLocaleString("id-ID")}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Metode</span>
@@ -1590,21 +1411,11 @@ export default function CashierDashboard() {
                       <>
                         <div className="flex justify-between text-sm mt-3 pt-3 border-t border-white/10 mb-1">
                           <span className="text-gray-400">Uang Diterima</span>
-                          <span className="font-bold text-white">
-                            Rp{" "}
-                            {(selectedOrder.uang_bayar ?? 0).toLocaleString(
-                              "id-ID",
-                            )}
-                          </span>
+                          <span className="font-bold text-white">Rp {(selectedOrder.uang_bayar ?? 0).toLocaleString("id-ID")}</span>
                         </div>
                         <div className="flex justify-between text-sm pt-1 border-t border-white/10">
                           <span className="text-gray-400">Kembalian</span>
-                          <span className="font-black text-emerald-400 text-base">
-                            Rp{" "}
-                            {(selectedOrder.kembalian ?? 0).toLocaleString(
-                              "id-ID",
-                            )}
-                          </span>
+                          <span className="font-black text-emerald-400 text-base">Rp {(selectedOrder.kembalian ?? 0).toLocaleString("id-ID")}</span>
                         </div>
                       </>
                     )}
