@@ -608,7 +608,8 @@ export default function CashierDashboard() {
   };
 
   // --- KOMPONEN KARTU STATIS (TANPA ANIMASI) ---
- const OrderCard = ({ order, col }: { order: Order; col: any }) => {
+ c// --- KOMPONEN KARTU PESANAN (SALIN DARI SINI) ---
+  const OrderCard = ({ order, col }: { order: Order; col: any }) => {
     const isLoading = loadingOrderId === order.id;
     const isLastStatus = order.status === "UNPAID";
 
@@ -616,10 +617,12 @@ export default function CashierDashboard() {
       <div
         className="group relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all duration-300 shadow-xl overflow-hidden"
       >
+        {/* Efek Cahaya Dekoratif */}
         <div
           className={`absolute -top-10 -right-10 w-24 h-24 bg-gradient-to-br ${col.accent} rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity`}
         />
 
+        {/* Header: ID, Waktu, Nama, dan Nomor Meja */}
         <div className="flex justify-between items-start mb-4 relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
@@ -652,14 +655,14 @@ export default function CashierDashboard() {
           </div>
         </div>
 
-        {/* --- BAGIAN DAFTAR MENU DENGAN KUNCI SCROLL --- */}
+        {/* --- DAFTAR ITEM DENGAN FITUR KUNCI SCROLL --- */}
         <div 
           className="space-y-3 mb-4 relative z-10 max-h-[200px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
-          // 1. Simpan posisi scroll saat kasir menggeser list
+          // 1. Simpan posisi scroll saat user menggeser list
           onScroll={(e) => {
             scrollPositions.current[order.id] = e.currentTarget.scrollTop;
           }}
-          // 2. Kembalikan posisi scroll setelah auto-refresh data
+          // 2. Paksa posisi scroll tetap di tempat saat data di-refresh
           ref={(el) => {
             if (el && scrollPositions.current[order.id] !== undefined) {
               el.scrollTop = scrollPositions.current[order.id];
@@ -675,7 +678,7 @@ export default function CashierDashboard() {
                 </div>
               </div>
               
-              {/* --- LEVEL PEDAS & CATATAN PADA CARD --- */}
+              {/* Detail Level Pedas & Catatan */}
               {((item.level_pedas !== null && item.level_pedas !== undefined) || item.catatan) && (
                 <div className="flex flex-wrap gap-1 mt-1.5 ml-6 mb-1">
                   {item.level_pedas !== null && item.level_pedas !== undefined && (
@@ -694,7 +697,7 @@ export default function CashierDashboard() {
           ))}
         </div>
 
-        {/* --- BAGIAN FOOTER / TOMBOL AKSI --- */}
+        {/* --- FOOTER: TOMBOL STATUS --- */}
         <div className="relative z-10">
           <button
             onClick={() => handleUpdateStatus(order.id, order.status)}
@@ -723,7 +726,9 @@ export default function CashierDashboard() {
       </div>
     );
   };
+  // --- SELESAI KOMPONEN OrderCard ---
 
+  
   const filteredStockItems = stockItems.filter((item) => {
     const matchesSearch = item.nama
       .toLowerCase()
