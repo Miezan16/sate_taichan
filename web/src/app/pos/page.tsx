@@ -151,6 +151,8 @@ export default function CashierDashboard() {
   const [stockCategoryFilter, setStockCategoryFilter] = useState("All");
   const stockCategories = ["All", "Sate", "Karbo", "Camilan", "Minuman"];
 
+  const scrollPositions = React.useRef<Record<number, number>>({});
+  
   // Kembalian dihitung secara real-time
   const kembalian =
     paymentMethod === "CASH" && uangDiterima
@@ -606,7 +608,7 @@ export default function CashierDashboard() {
   };
 
   // --- KOMPONEN KARTU STATIS (TANPA ANIMASI) ---
-  const OrderCard = ({ order, col }: { order: Order; col: any }) => {
+ const OrderCard = ({ order, col }: { order: Order; col: any }) => {
     const isLoading = loadingOrderId === order.id;
     const isLastStatus = order.status === "UNPAID";
 
@@ -650,8 +652,20 @@ export default function CashierDashboard() {
           </div>
         </div>
 
-        {/* Tambahan batas tinggi (max-h) & fitur scroll (overflow-y-auto) dengan desain scrollbar tipis */}
-        <div className="space-y-3 mb-4 relative z-10 max-h-[200px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
+        {/* --- BAGIAN DAFTAR MENU DENGAN KUNCI SCROLL --- */}
+        <div 
+          className="space-y-3 mb-4 relative z-10 max-h-[200px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
+          // 1. Simpan posisi scroll saat kasir menggeser list
+          onScroll={(e) => {
+            scrollPositions.current[order.id] = e.currentTarget.scrollTop;
+          }}
+          // 2. Kembalikan posisi scroll setelah auto-refresh data
+          ref={(el) => {
+            if (el && scrollPositions.current[order.id] !== undefined) {
+              el.scrollTop = scrollPositions.current[order.id];
+            }
+          }}
+        >
           {order.items?.map((item) => (
             <div key={item.id} className="flex flex-col text-sm">
               <div className="flex justify-between items-start text-white/90 font-medium">
@@ -680,34 +694,28 @@ export default function CashierDashboard() {
           ))}
         </div>
 
-        <div className="flex items-end justify-between pt-3 border-t border-white/10 relative z-10">
-          <div>
-            <p className="text-[9px] text-gray-500 font-medium uppercase tracking-wider mb-0.5">
-              Total
-            </p>
-            <p className="text-sm font-bold text-white tracking-tight">
-              Rp {order.total_harga.toLocaleString("id-ID")}
-            </p>
-          </div>
-
+        {/* --- BAGIAN FOOTER / TOMBOL AKSI --- */}
+        <div className="relative z-10">
           <button
-            onClick={() => handleNextStatus(order)}
+            onClick={() => handleUpdateStatus(order.id, order.status)}
             disabled={isLoading}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95 ${
+            className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
               isLoading
                 ? "bg-white/5 text-gray-500 cursor-not-allowed"
-                : `bg-gradient-to-r ${col.accent} text-white hover:scale-105`
+                : isLastStatus
+                ? "bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-[1.02]"
+                : `bg-white/10 text-white hover:bg-white/20 border border-white/10`
             }`}
           >
             {isLoading ? (
-              <Loader2 className="animate-spin" size={14} />
+              <Loader2 className="animate-spin" size={16} />
             ) : isLastStatus ? (
               <>
-                <Banknote size={14} /> Bayar
+                <Banknote size={16} /> SELESAIKAN PEMBAYARAN
               </>
             ) : (
               <>
-                Proses <ChevronRight size={14} />
+                <ChevronRight size={16} /> PROSES KE TAHAP BERIKUTNYA
               </>
             )}
           </button>
@@ -1321,7 +1329,81 @@ export default function CashierDashboard() {
                                     </span>
                                   )}
                                   {item.catatan && (
-                                    <span className="text-[10px] text-gray-400 italic break-all max-w-[200px] line-clamp-2">
+                
+
+  const filteredStockItems = stockItems.filter((item) => {
+    const matchesSearch = item.nama
+      .toLowerCase()
+      .includes(stockSearchQuery.toLowerCase());
+    const matchesCategory =
+      stockCategoryFilter === "All" || item.kategori === stockCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  return (
+    <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden">
+      {/* --- SIDEBAR --- */}
+      <aside className="w-20 lg:w-24 bg-[#0a0a0a] border-r border-white/10 py-6 flex flex-col items-center z-20">
+        <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center mb-8 shadow-[0_0_20px_rgba(6,182,212,0.4)] relative">
+          <ChefHat size={24} className="text-white relative z-10" />
+        </div>
+
+        <nav className="flex flex-col gap-4 w-full px-3">
+          {[
+            { id: "overview", icon: Activity, label: "Statistik" },
+            { id: "board", icon: LayoutGrid, label: "Pesanan" },
+            { id: "history", icon: History, label: "Riwayat" },
+            { id: "stock", icon: Package, label: "Stok Menu" },
+          ].map((menu) => (
+            <button
+              key={menu.id}
+              onClick={() => setActiveTab(menu.id as any)}
+              className={`w-full aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 relative group ${
+                activeTab === menu.id
+                  ? "bg-white/10 text-white shadow-lg border border-white/10"
+                  : "text-gray-500 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <menu.icon
+                size={20}
+                className={`transition-transform ${
+                  activeTab === menu.id
+                    ? "scale-110 text-cyan-400"
+                    : "group-hover:scale-110"
+                }`}
+              />
+              <span className="text-[9px] font-bold tracking-wide">
+                {menu.label}
+              </span>
+              {activeTab === menu.id && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute left-0 w-1 h-8 bg-cyan-400 rounded-full"
+                  style={{ top: "50%", transform: "translateY(-50%)" }}
+                />
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {/* Kasir info + Logout */}
+        <div className="w-full px-3 mt-auto">
+          <div className="flex flex-col items-center gap-1 mb-4">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-xs">
+              {cashierName ? cashierName[0].toUpperCase() : "?"}
+            </div>
+            <span className="text-[9px] text-gray-500 font-medium text-center truncate w-full text-center">
+              {cashierName || "..."}
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            title="Logout"
+            className="w-full aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300"
+          >
+            {isLoggingOut ? (
+                            <span className="text-[10px] text-gray-400 italic break-all max-w-[200px] line-clamp-2">
                                       "{item.catatan}"
                                     </span>
                                   )}
