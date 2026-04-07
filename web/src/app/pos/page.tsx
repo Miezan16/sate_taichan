@@ -650,8 +650,9 @@ export default function CashierDashboard() {
           </div>
         </div>
 
-        <div className="space-y-3 mb-4 relative z-10">
-          {order.items?.slice(0, 3).map((item) => (
+        {/* Tambahan batas tinggi (max-h) & fitur scroll (overflow-y-auto) dengan desain scrollbar tipis */}
+        <div className="space-y-3 mb-4 relative z-10 max-h-[200px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
+          {order.items?.map((item) => (
             <div key={item.id} className="flex flex-col text-sm">
               <div className="flex justify-between items-start text-white/90 font-medium">
                 <div className="flex gap-2">
@@ -677,11 +678,6 @@ export default function CashierDashboard() {
               )}
             </div>
           ))}
-          {order.items?.length > 3 && (
-            <div className="text-[10px] text-gray-500 font-medium italic mt-1">
-              + {order.items.length - 3} item lainnya...
-            </div>
-          )}
         </div>
 
         <div className="flex items-end justify-between pt-3 border-t border-white/10 relative z-10">
