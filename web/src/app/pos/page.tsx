@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -40,7 +40,6 @@ import {
 // --- TYPES ---
 type StatusPesanan = "PENDING" | "PROCESSING" | "UNPAID" | "COMPLETED";
 type MetodePembayaran = "CASH" | "EWALLET";
-
 interface MenuItem {
   id: number;
   nama: string;
@@ -50,7 +49,6 @@ interface MenuItem {
   kategori: string;
   stok: number;
 }
-
 interface OrderItem {
   id: number;
   menu: MenuItem;
@@ -59,7 +57,6 @@ interface OrderItem {
   level_pedas?: number | null;
   catatan?: string | null;
 }
-
 interface Order {
   id: number;
   nama_pelanggan: string;
@@ -73,7 +70,6 @@ interface Order {
   kembalian?: number;
   items: OrderItem[];
 }
-
 interface CabangInfo {
   id: number;
   nama_cabang: string;
@@ -81,7 +77,6 @@ interface CabangInfo {
   telepon?: string | null;
   link_maps?: string | null;
 }
-
 interface StockItem {
   id: number;
   nama: string;
@@ -126,37 +121,38 @@ const COLUMNS = [
 
 export default function CashierDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "board" | "history" | "stock"
-  >("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "board" | "history" | "stock">("overview");
   const [orders, setOrders] = useState<Order[]>([]);
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [loadingOrderId, setLoadingOrderId] = useState<number | null>(null);
-  const [cashierName, setCashierName] = useState("");
+  const [cashierName, setCashierName] = useState(" ");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
-  const [uangDiterima, setUangDiterima] = useState("");
+  const [uangDiterima, setUangDiterima] = useState(" ");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
+  
   // --- STATE CABANG BARU ---
   const [branches, setBranches] = useState<CabangInfo[]>([]);
   const [selectedCabangId, setSelectedCabangId] = useState<number | "">("");
-
+  
   // --- STATE STOCK BARU ---
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [isLoadingStock, setIsLoadingStock] = useState(true);
-  const [stockSearchQuery, setStockSearchQuery] = useState("");
+  const [stockSearchQuery, setStockSearchQuery] = useState(" ");
   const [stockCategoryFilter, setStockCategoryFilter] = useState("All");
   const stockCategories = ["All", "Sate", "Karbo", "Camilan", "Minuman"];
+
+  // --- SCROLL PRESERVATION REFS (KOLOM KANBAN) ---
+  const columnScrollRefs = useRef<(HTMLDivElement | null)[]>([null, null, null]);
+  const columnScrollPositions = useRef<number[]>([0, 0, 0]);
 
   // Kembalian dihitung secara real-time
   const kembalian =
     paymentMethod === "CASH" && uangDiterima
       ? Math.max(0, Number(uangDiterima) - (selectedOrder?.total_harga ?? 0))
       : 0;
-
   const isCashValid =
     paymentMethod !== "CASH" ||
     Number(uangDiterima) >= (selectedOrder?.total_harga ?? 0);
@@ -231,7 +227,6 @@ export default function CashierDashboard() {
         router.push("/login");
       }
     };
-
     // FETCH LIST CABANG
     const fetchCabang = async () => {
       try {
@@ -259,7 +254,6 @@ export default function CashierDashboard() {
   useEffect(() => {
     fetchOrders();
     fetchStock(); // Refresh stock/menu data to sync with admin deletions
-
     const interval = setInterval(() => {
       fetchOrders();
       fetchStock(); // Auto refresh stock/menu every 5 seconds secara statis
@@ -267,6 +261,13 @@ export default function CashierDashboard() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // --- RESTORE SCROLL POSITION AFTER ORDERS UPDATE (MENCEGAH RESET SAAT AUTO REFRESH) ---
+  useEffect(() => {
+    columnScrollRefs.current.forEach((ref, i) => {
+      if (ref) ref.scrollTop = columnScrollPositions.current[i];
+    });
+  });
 
   // --- STATISTIK KALKULASI ---
   const today = new Date();
@@ -285,7 +286,6 @@ export default function CashierDashboard() {
     today.getMonth(),
     1,
   ).getTime();
-
   const todayCompleted = historyOrders.filter(
     (o) => new Date(o.tanggal).getTime() >= startOfToday,
   );
@@ -295,7 +295,6 @@ export default function CashierDashboard() {
   const monthCompleted = historyOrders.filter(
     (o) => new Date(o.tanggal).getTime() >= startOfMonth,
   );
-
   const revenueToday = todayCompleted.reduce(
     (sum, o) => sum + o.total_harga,
     0,
@@ -309,7 +308,6 @@ export default function CashierDashboard() {
     let nextStatus: StatusPesanan | null = null;
     if (order.status === "PENDING") nextStatus = "PROCESSING";
     else if (order.status === "PROCESSING") nextStatus = "UNPAID";
-
     if (order.status === "UNPAID") {
       setSelectedOrder(order);
       setIsModalOpen(true);
@@ -349,7 +347,6 @@ export default function CashierDashboard() {
         ? Number(uangDiterima)
         : selectedOrder.total_harga;
     const kembalianVal = paymentMethod === "CASH" ? kembalian : 0;
-
     try {
       const res = await fetch(`/api/transaksi/${selectedOrder.id}`, {
         method: "PATCH",
@@ -369,7 +366,6 @@ export default function CashierDashboard() {
             ? {
                 ...prev,
                 kasir_nama: cashierName,
-                // Tambahkan "as any" di sini untuk membungkam error TypeScript
                 metode_pembayaran: paymentMethod as any,
                 uang_bayar: uangBayarVal,
                 kembalian: kembalianVal,
@@ -414,77 +410,76 @@ export default function CashierDashboard() {
       month: "long",
       day: "numeric",
     });
-
     const rowsHtml = historyOrders
       .map(
         (h) => `
-         <tr>
-           <td class="center">#${h.id}</td>
-           <td>${new Date(h.tanggal).toLocaleString("id-ID")}</td>
-           <td>${h.nama_pelanggan}</td>
-           <td class="center">${h.nomor_meja}</td>
-           <td>${h.kasir_nama || "-"}</td>
-           <td class="center">${h.metode_pembayaran}</td>
-           <td class="right">Rp ${h.total_harga.toLocaleString("id-ID")}</td>
-         </tr>
-      `,
+      <tr>
+        <td class="center">#${h.id}</td>
+        <td>${new Date(h.tanggal).toLocaleString("id-ID")}</td>
+        <td>${h.nama_pelanggan}</td>
+        <td class="center">${h.nomor_meja}</td>
+        <td>${h.kasir_nama || "-"}</td>
+        <td class="center">${h.metode_pembayaran}</td>
+        <td class="right">Rp ${h.total_harga.toLocaleString("id-ID")}</td>
+      </tr>
+  `,
       )
       .join("");
 
     const htmlContent = `
-       <html>
-         <head>
-           <title>Laporan Transaksi - ${dateStr}</title>
-           <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #333; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .header h1 { margin: 0 0 5px 0; font-size: 24px; text-transform: uppercase; }
-            .header p { margin: 0; color: #666; font-size: 14px; }
-             table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; }
-            th, td { border: 1px solid #ddd; padding: 12px; }
-            th { background-color: #f8f9fa; font-weight: bold; text-transform: uppercase; font-size: 12px; }
-            .center { text-align: center; }
-            .right { text-align: right; }
-            .bold { font-weight: bold; }
-            .total-row { background-color: #f8f9fa; }
-            .total-row td { font-size: 16px; font-weight: bold; border-top: 2px solid #333; }
-            .footer { text-align: center; font-size: 12px; color: #888; margin-top: 50px; }
-           </style>
-         </head>
-         <body>
-           <div class="header">
-             <h1>Laporan Riwayat Transaksi</h1>
-             <p>Sate Sadjodo | Tanggal Cetak: ${dateStr}</p>
-           </div>
-           <table>
-             <thead>
-               <tr>
-                 <th>ID</th>
-                 <th>Tanggal & Waktu</th>
-                 <th>Pelanggan</th>
-                 <th>Meja</th>
-                 <th>Kasir</th>
-                 <th>Metode</th>
-                 <th class="right">Total</th>
-               </tr>
-             </thead>
-             <tbody>
-              ${rowsHtml}
-               <tr class="total-row">
-                 <td colspan="6" class="right">TOTAL PENDAPATAN</td>
-                 <td class="right">Rp ${grandTotal.toLocaleString("id-ID")}</td>
-               </tr>
-             </tbody>
-           </table>
-           <div class="footer">
-             <p>Dokumen ini dicetak otomatis oleh Sistem Kasir Sate Sadjodo.</p>
-           </div>
-           <script>
-            setTimeout(() => { window.print(); window.close(); }, 500);
-           </script>
-         </body>
-       </html>
-    `;
+    <html>
+      <head>
+        <title>Laporan Transaksi - ${dateStr}</title>
+        <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #333; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333;  padding-bottom: 20px; }
+        .header h1 { margin: 0 0 5px 0; font-size: 24px; text-transform: uppercase; }
+        .header p { margin: 0; color: #666; font-size: 14px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; }
+        th, td { border: 1px solid #ddd; padding: 12px; }
+        th { background-color:  #f8f9fa; font-weight: bold; text-transform: uppercase; font-size: 12px; }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .bold { font-weight:  bold; }
+        .total-row { background-color: #f8f9fa; }
+        .total-row td { font-size: 16px; font-weight: bold; border-top: 2px solid #333; }
+        .footer { text-align: c enter; font-size: 12px; color: #888; margin-top: 50px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Laporan Riwayat Transaksi</h1>
+          <p>Sate Sadjodo | Tanggal Cetak: ${dateStr}</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tanggal  & Waktu</th>
+              <th>Pelanggan</th>
+              <th>Meja</th>
+              <th>Kasir</th>
+              <th>Metode</th>
+              <th class="right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+          ${rowsHtml}
+            <tr class="total-row">
+              <td colspan="6" class="right">TOTAL PENDAPATAN</td>
+              <td class="right">Rp ${grandTotal.toLocaleString("id-ID")}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>Dokumen ini dicetak otomatis oleh Sistem Kasir Sate Sadjodo.</p>
+        </div>
+        <script>
+        setTimeout(() => { window.print(); window.close(); }, 500);
+        </script>
+      </body>
+    </html>
+`;
     printWindow.document.write(htmlContent);
     printWindow.document.close();
   };
@@ -496,111 +491,110 @@ export default function CashierDashboard() {
     const activeCabang =
       branches.find((b) => b.id === selectedCabangId) || branches[0];
     const dateStr = new Date(selectedOrder.tanggal).toLocaleString("id-ID");
-
     const itemsHtml = selectedOrder.items
       .map(
         (item) => `
-         <div class="item">
-           <div class="item-name">${item.menu.nama}</div>
-           <div class="flex">
-             <span>${item.jumlah} x ${item.harga_satuan.toLocaleString("id-ID")}</span>
-             <span>${(item.jumlah * item.harga_satuan).toLocaleString("id-ID")}</span>
-           </div>
-         </div>
-      `,
+      <div class="item">
+        <div class="item-name">${item.menu.nama}</div>
+        <div class="flex">
+          <span>${item.jumlah} x ${item.harga_satuan.toLocaleString("id-ID")}</span>
+          <span>${(item.jumlah * item.harga_satuan).toLocaleString("id-ID")}</span>
+        </div>
+      </div>
+  `,
       )
       .join("");
 
     const htmlContent = `
-       <html>
-         <head>
-           <title>Struk #${selectedOrder.id}</title>
-           <style>
-            @page { margin: 0; }
-            body { 
-              font-family: 'Courier New', Courier, monospace; 
-              width: 300px;
-              margin: 20px auto; 
-              color: #000; 
-              font-size: 12px; 
-              background: #fff;
-            }
-            .center { text-align: center; }
-            .right { text-align: right; }
-            .left { text-align: left; }
-            .flex { display: flex; justify-content: space-between; }
-            .bold { font-weight: bold; }
-            .dashed-line { border-bottom: 1px dashed #000; margin: 8px 0; }
-            h2 { margin: 0 0 5px 0; font-size: 18px; }
-            p { margin: 2px 0; }
-            .item { margin-bottom: 6px; }
-            .item-name { margin-bottom: 2px; }
-            .total-section { margin-top: 10px; font-size: 14px; }
-            .footer { margin-top: 20px; font-size: 11px; }
-           </style>
-         </head>
-         <body>
-           <div class="center">
-             <h2>${activeCabang?.nama_cabang ?? "SATE SADJODO"}</h2>
-             <p>${activeCabang?.alamat ?? "Jl. Kuliner No. 99, Bandung"}</p>
-            ${
-              activeCabang?.telepon
-                ? `<p>Telp: ${activeCabang.telepon}</p>`
-                : "<p>Telp: 0812-3456-7890</p>"
-            }
-           </div>
-          
-           <div class="dashed-line"></div>
-          
-           <p>Waktu : ${dateStr}</p>
-           <p>Kasir : ${selectedOrder.kasir_nama || "-"}</p>
-           <p>Meja  : ${selectedOrder.nomor_meja}</p>
-           <p>Order : #${selectedOrder.id} - ${selectedOrder.nama_pelanggan}</p>
-          
-           <div class="dashed-line"></div>
-          
-          ${itemsHtml}
-          
-           <div class="dashed-line"></div>
-          
-           <div class="total-section">
-             <div class="flex bold">
-               <span>TOTAL</span>
-               <span>Rp ${selectedOrder.total_harga.toLocaleString("id-ID")}</span>
-             </div>
-             <div class="flex mt-1">
-               <span>METODE</span>
-               <span>${selectedOrder.metode_pembayaran}</span>
-             </div>
-            ${
-              selectedOrder.metode_pembayaran === "CASH"
-                ? `
-             <div class="flex mt-1">
-               <span>BAYAR</span>
-               <span>Rp ${(selectedOrder.uang_bayar ?? 0).toLocaleString("id-ID")}</span>
-             </div>
-             <div class="flex mt-1 bold">
-               <span>KEMBALI</span>
-               <span>Rp ${(selectedOrder.kembalian ?? 0).toLocaleString("id-ID")}</span>
-             </div>`
-                : ""
-            }
-           </div>
-          
-           <div class="dashed-line"></div>
-          
-           <div class="center footer">
-             <p class="bold">TERIMA KASIH</p>
-             <p>Selamat Menikmati Hidangan Kami</p>
-             <p>*** Sate Sadjodo POS ***</p>
-           </div>
-          
-           <script>
-            setTimeout(() => { window.print(); window.close(); }, 500);
-           </script>
-         </body>
-       </html>
-    `;
+    <html>
+      <head>
+        <title>Struk #${selectedOrder.id}</title>
+        <style>
+        @page { margin: 0; }
+        body { 
+          font-family: 'Courier New', Courier, monospace; 
+          width: 300px;
+          margin: 20px auto; 
+          color: #00 0; 
+          font-size: 12px; 
+          background: #fff;
+        }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .left { text-align: left ; }
+        .flex { display: flex; justify-content: space-between; }
+        .bold { font-weight: bold; }
+        .dashed-line { border-bottom: 1px dashed #000; margin: 8px 0; }
+         h2 { margin: 0 0 5px 0; font-size: 18px; }
+        p { margin: 2px 0; }
+        .item { margin-bottom: 6px; }
+        .item-name { margin-bottom: 2px; }
+        .total-sectio n { margin-top: 10px; font-size: 14px; }
+        .footer { margin-top: 20px; font-size: 11px; }
+        </style>
+      </head>
+      <body>
+        <div class="center">
+          <h2>${activeCabang?.nama_cabang ?? "SATE SADJODO"}</h2>
+          <p>${activeCabang?.alamat ?? "Jl. Kuliner No. 99, Bandung"}</p>
+        ${
+          activeCabang?.telepon
+            ? ` <p>Telp: ${activeCabang.telepon}</p>`
+            : " <p>Telp: 0812-3456-7890</p> "
+        }
+        </div>
+      
+        <div class="dashed-line"> </div>
+      
+        <p>Waktu : ${dateStr}</p>
+        <p>Kasir : ${selectedOrder.kasir_nama || "-"}</p>
+        <p>Meja  : ${selectedOrder.nomor_meja}</p>
+        <p>Order : #${selectedOrder.id} - ${selectedOrder.nama_pelanggan}</p>
+      
+        <div class="dashed-line"> </div>
+      
+      ${itemsHtml}
+      
+        <div class="dashed-line"> </div>
+      
+        <div class="total-section">
+          <div class="flex bold">
+            <span>TOTAL</span>
+            <span>Rp ${selectedOrder.total_harga.toLocaleString("id-ID")}</span>
+          </div>
+          <div class="flex mt-1">
+            <span>METODE</span>
+            <span>${selectedOrder.metode_pembayaran}</span>
+          </div>
+        ${
+          selectedOrder.metode_pembayaran === "CASH"
+            ? `
+          <div class="flex mt-1">
+            <span>BAYAR</span>
+            <span>Rp ${(selectedOrder.uang_bayar ?? 0).toLocaleString("id-ID")}</span>
+          </div>
+          <div class="flex mt-1 bold">
+            <span>KEMBALI</span>
+            <span>Rp ${(selectedOrder.kembalian ?? 0).toLocaleString("id-ID")}</span>
+          </div>`
+            : " "
+        }
+        </div>
+      
+        <div class="dashed-line"> </div>
+      
+        <div class="center footer">
+          <p class="bold">TERIMA KASIH</p>
+          <p>Selamat Menikmati Hidangan Kami</p>
+          <p>*** Sate Sadjodo POS ***</p>
+        </div>
+      
+        <script>
+        setTimeout(() => { window.print(); window.close(); }, 500);
+        </script>
+      </body>
+    </html>
+`;
     printWindow.document.write(htmlContent);
     printWindow.document.close();
   };
@@ -609,11 +603,16 @@ export default function CashierDashboard() {
   const OrderCard = ({ order, col }: { order: Order; col: any }) => {
     const isLoading = loadingOrderId === order.id;
     const isLastStatus = order.status === "UNPAID";
+    
+    // --- SCROLL PRESERVATION UNTUK CARD ---
+    const cardScrollRef = useRef<HTMLDivElement>(null);
+    const cardScrollPos = useRef(0);
+    useEffect(() => {
+      if (cardScrollRef.current) cardScrollRef.current.scrollTop = cardScrollPos.current;
+    });
 
     return (
-      <div
-        className="group relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all duration-300 shadow-xl overflow-hidden"
-      >
+      <div className="group relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all duration-300 shadow-xl overflow-hidden">
         <div
           className={`absolute -top-10 -right-10 w-24 h-24 bg-gradient-to-br ${col.accent} rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity`}
         />
@@ -650,25 +649,45 @@ export default function CashierDashboard() {
           </div>
         </div>
 
-        {/* Tambahan batas tinggi (max-h) & fitur scroll (overflow-y-auto) dengan desain scrollbar tipis */}
-        <div className="space-y-3 mb-4 relative z-10 max-h-[200px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
+        {/* Tambahan batas tinggi (max-h)  & fitur scroll (overflow-y-auto) dengan desain scrollbar tipis */}
+        <div
+          ref={cardScrollRef}
+          onScroll={() => {
+            if (cardScrollRef.current) cardScrollPos.current = cardScrollRef.current.scrollTop;
+          }}
+          className="space-y-3 mb-4 relative z-10 max-h-[200px] overflow-y-auto pr-2 [ &::-webkit-scrollbar]:w-1 [ &::-webkit-scrollbar-track]:bg-transparent [ &::-webkit-scrollbar-thumb]:bg-white/10 [ &::-webkit-scrollbar-thumb]:rounded-full hover:[ &::-webkit-scrollbar-thumb]:bg-white/20"
+        >
           {order.items?.map((item) => (
             <div key={item.id} className="flex flex-col text-sm">
               <div className="flex justify-between items-start text-white/90 font-medium">
                 <div className="flex gap-2">
-                  <span className={`font-bold ${col.text}`}>{item.jumlah}x</span>
-                  <span className="text-gray-300 leading-tight pr-2">{item.menu?.nama}</span>
+                  <span className={`font-bold ${col.text}`}>
+                    {item.jumlah}x
+                  </span>
+                  <span className="text-gray-300 leading-tight pr-2">
+                    {item.menu?.nama}
+                  </span>
                 </div>
               </div>
-              
-              {/* --- LEVEL PEDAS & CATATAN PADA CARD --- */}
-              {((item.level_pedas !== null && item.level_pedas !== undefined) || item.catatan) && (
+
+              {/* --- LEVEL PEDAS  & CATATAN PADA CARD --- */}
+              {((item.level_pedas !== null && item.level_pedas !== undefined) ||
+                item.catatan) && (
                 <div className="flex flex-wrap gap-1 mt-1.5 ml-6 mb-1">
-                  {item.level_pedas !== null && item.level_pedas !== undefined && (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'}`}>
-                      {item.level_pedas > 0 ? <><Flame size={10} /> Level {item.level_pedas}</> : "Pisah Sambal"}
-                    </span>
-                  )}
+                  {item.level_pedas !== null &&
+                    item.level_pedas !== undefined && (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? "bg-orange-500/20 text-orange-400" : "bg-red-500/20 text-red-400"}`}
+                      >
+                        {item.level_pedas > 0 ? (
+                          <>
+                            <Flame size={10} /> Level {item.level_pedas}
+                          </>
+                        ) : (
+                          "Pisah Sambal"
+                        )}
+                      </span>
+                    )}
                   {item.catatan && (
                     <span className="text-[10px] text-gray-400 italic break-all max-w-[150px] line-clamp-1 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">
                       "{item.catatan}"
@@ -693,7 +712,7 @@ export default function CashierDashboard() {
           <button
             onClick={() => handleNextStatus(order)}
             disabled={isLoading}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95  ${
               isLoading
                 ? "bg-white/5 text-gray-500 cursor-not-allowed"
                 : `bg-gradient-to-r ${col.accent} text-white hover:scale-105`
@@ -726,13 +745,12 @@ export default function CashierDashboard() {
   });
 
   return (
-    <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#050505] text-white overflow-hidden">
       {/* --- SIDEBAR --- */}
-      <aside className="w-20 lg:w-24 bg-[#0a0a0a] border-r border-white/10 py-6 flex flex-col items-center z-20">
-        <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center mb-8 shadow-[0_0_20px_rgba(6,182,212,0.4)] relative">
+      <aside className="w-20 bg-[#0a0a0a] border-r border-white/5 flex flex-col items-center py-6 z-20 shrink-0">
+        <div className="mb-8 p-3 bg-white/5 rounded-2xl">
           <ChefHat size={24} className="text-white relative z-10" />
         </div>
-
         <nav className="flex flex-col gap-4 w-full px-3">
           {[
             { id: "overview", icon: Activity, label: "Statistik" },
@@ -743,7 +761,7 @@ export default function CashierDashboard() {
             <button
               key={menu.id}
               onClick={() => setActiveTab(menu.id as any)}
-              className={`w-full aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 relative group ${
+              className={`w-full aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 relative group  ${
                 activeTab === menu.id
                   ? "bg-white/10 text-white shadow-lg border border-white/10"
                   : "text-gray-500 hover:text-white hover:bg-white/5"
@@ -803,8 +821,7 @@ export default function CashierDashboard() {
         <header className="h-20 px-8 flex items-center justify-between border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl z-10 sticky top-0">
           <div>
             <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-              SISTEM KASIR{" "}
-              <span className="text-cyan-400">SATE SADJODO</span>
+              SISTEM KASIR <span className="text-cyan-400">SATE SADJODO</span>
             </h1>
             <p className="text-xs text-gray-400 font-medium mt-0.5">
               Dashboard Manajemen Pesanan
@@ -966,7 +983,7 @@ export default function CashierDashboard() {
           {/* --- VIEW: KANBAN BOARD (DIBUAT STATIS/TANPA ANIMASI) --- */}
           {activeTab === "board" && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-[600px]">
-              {COLUMNS.map((col) => {
+              {COLUMNS.map((col, i) => {
                 const colOrders = orders.filter((o) => o.status === col.id);
                 return (
                   <div
@@ -989,7 +1006,14 @@ export default function CashierDashboard() {
                       </span>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
+                    <div
+                      ref={el => columnScrollRefs.current[i] = el}
+                      onScroll={(e) => {
+                        const target = e.target as HTMLDivElement;
+                        columnScrollPositions.current[i] = target.scrollTop;
+                      }}
+                      className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full"
+                    >
                       {colOrders.length === 0 ? (
                         <div className="h-32 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-gray-600">
                           <col.icon className="mb-2 opacity-20" size={24} />
@@ -1141,8 +1165,8 @@ export default function CashierDashboard() {
                                   isOutOfStock
                                     ? "text-red-500"
                                     : isLowStock
-                                    ? "text-amber-400"
-                                    : "text-emerald-400"
+                                      ? "text-amber-400"
+                                      : "text-emerald-400"
                                 }`}
                               >
                                 {item.stok}
@@ -1202,7 +1226,7 @@ export default function CashierDashboard() {
                         ID
                       </th>
                       <th className="p-5 font-bold tracking-wider">
-                        Tanggal & Waktu
+                        Tanggal  & Waktu
                       </th>
                       <th className="p-5 font-bold tracking-wider">
                         Pelanggan
@@ -1297,7 +1321,9 @@ export default function CashierDashboard() {
                         <Receipt className="text-cyan-400" /> Detail Pesanan
                       </h2>
                       <p className="text-sm text-gray-400 font-medium">
-                        Order #{selectedOrder.id} • {selectedOrder.nama_pelanggan} • Meja {selectedOrder.nomor_meja}
+                        Order #{selectedOrder.id} •{" "}
+                        {selectedOrder.nama_pelanggan} • Meja{" "}
+                        {selectedOrder.nomor_meja}
                       </p>
                     </div>
 
@@ -1310,16 +1336,28 @@ export default function CashierDashboard() {
                           >
                             <div>
                               <p className="font-bold text-sm text-white flex items-center gap-2">
-                                <span>{item.jumlah}x</span> {item.menu.nama}
+                                <span>{item.jumlah}x </span> {item.menu.nama}
                               </p>
-                              {/* --- LEVEL PEDAS & CATATAN PADA MODAL --- */}
-                              {((item.level_pedas !== null && item.level_pedas !== undefined) || item.catatan) && (
+                              {/* --- LEVEL PEDAS  & CATATAN PADA MODAL --- */}
+                              {((item.level_pedas !== null &&
+                                item.level_pedas !== undefined) ||
+                                item.catatan) && (
                                 <div className="flex flex-wrap gap-1 mt-1 ml-6 mb-1">
-                                  {item.level_pedas !== null && item.level_pedas !== undefined && (
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'}`}>
-                                      {item.level_pedas > 0 ? <><Flame size={10} /> Level {item.level_pedas}</> : "Pisah Sambal"}
-                                    </span>
-                                  )}
+                                  {item.level_pedas !== null &&
+                                    item.level_pedas !== undefined && (
+                                      <span
+                                        className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 w-max ${item.level_pedas === 0 ? "bg-orange-500/20 text-orange-400" : "bg-red-500/20 text-red-400"}`}
+                                      >
+                                        {item.level_pedas > 0 ? (
+                                          <>
+                                            <Flame size={10} /> Level{" "}
+                                            {item.level_pedas}
+                                          </>
+                                        ) : (
+                                          "Pisah Sambal"
+                                        )}
+                                      </span>
+                                    )}
                                   {item.catatan && (
                                     <span className="text-[10px] text-gray-400 italic break-all max-w-[200px] line-clamp-2">
                                       "{item.catatan}"
@@ -1344,14 +1382,18 @@ export default function CashierDashboard() {
 
                     <div className="mt-auto space-y-3 bg-white/5 border border-white/10 p-5 rounded-2xl">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400 font-medium">Subtotal</span>
+                        <span className="text-gray-400 font-medium">
+                          Subtotal
+                        </span>
                         <span className="font-bold text-gray-300">
                           Rp {selectedOrder.total_harga.toLocaleString("id-ID")}
                         </span>
                       </div>
                       <div className="h-px bg-white/10 w-full" />
                       <div className="flex justify-between items-center">
-                        <span className="text-white font-bold">Total Pembayaran</span>
+                        <span className="text-white font-bold">
+                          Total Pembayaran
+                        </span>
                         <span className="text-2xl font-black text-cyan-400 tracking-tight">
                           Rp {selectedOrder.total_harga.toLocaleString("id-ID")}
                         </span>
@@ -1361,7 +1403,8 @@ export default function CashierDashboard() {
 
                   <div className="lg:w-1/2 p-8 flex flex-col bg-zinc-950">
                     <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                      <CreditCard size={20} className="text-cyan-400" /> Proses Pembayaran
+                      <CreditCard size={20} className="text-cyan-400" /> Proses
+                      Pembayaran
                     </h3>
 
                     <div className="space-y-6 flex-1">
@@ -1419,23 +1462,33 @@ export default function CashierDashboard() {
                                   type="number"
                                   min={0}
                                   value={uangDiterima}
-                                  onChange={(e) => setUangDiterima(e.target.value)}
+                                  onChange={(e) =>
+                                    setUangDiterima(e.target.value)
+                                  }
                                   placeholder="0"
                                   className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-4 text-white font-bold text-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                               </div>
                               <div className="flex gap-2 mt-3 overflow-x-auto pb-2 scrollbar-hide">
-                                {[50000, 100000, 150000, 200000].map((amount) => (
-                                  <button
-                                    key={amount}
-                                    onClick={() => setUangDiterima(amount.toString())}
-                                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold text-gray-300 whitespace-nowrap transition-colors"
-                                  >
-                                    {amount.toLocaleString("id-ID")}
-                                  </button>
-                                ))}
+                                {[50000, 100000, 150000, 200000].map(
+                                  (amount) => (
+                                    <button
+                                      key={amount}
+                                      onClick={() =>
+                                        setUangDiterima(amount.toString())
+                                      }
+                                      className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold text-gray-300 whitespace-nowrap transition-colors"
+                                    >
+                                      {amount.toLocaleString("id-ID")}
+                                    </button>
+                                  ),
+                                )}
                                 <button
-                                  onClick={() => setUangDiterima(selectedOrder.total_harga.toString())}
+                                  onClick={() =>
+                                    setUangDiterima(
+                                      selectedOrder.total_harga.toString(),
+                                    )
+                                  }
                                   className="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 rounded-lg text-xs font-bold text-cyan-400 whitespace-nowrap transition-colors"
                                 >
                                   Uang Pas
@@ -1448,19 +1501,23 @@ export default function CashierDashboard() {
                                 uangDiterima && !isCashValid
                                   ? "bg-red-500/10 border-red-500/30"
                                   : uangDiterima
-                                  ? "bg-emerald-500/10 border-emerald-500/30"
-                                  : "bg-white/5 border-white/10"
+                                    ? "bg-emerald-500/10 border-emerald-500/30"
+                                    : "bg-white/5 border-white/10"
                               }`}
                             >
                               <div className="flex justify-between items-center mb-1">
-                                <span className="text-sm font-medium text-gray-400">Kembalian</span>
+                                <span className="text-sm font-medium text-gray-400">
+                                  Kembalian
+                                </span>
                                 {!isCashValid && uangDiterima && (
                                   <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">
                                     Uang Kurang!
                                   </span>
                                 )}
                               </div>
-                              <p className={`text-3xl font-black ${uangDiterima && !isCashValid ? "text-red-400" : uangDiterima ? "text-emerald-400" : "text-gray-500"}`}>
+                              <p
+                                className={`text-3xl font-black ${uangDiterima && !isCashValid ? "text-red-400" : uangDiterima ? "text-emerald-400" : "text-gray-500"}`}
+                              >
                                 Rp {kembalian.toLocaleString("id-ID")}
                               </p>
                             </div>
@@ -1474,8 +1531,13 @@ export default function CashierDashboard() {
                             <LayoutGrid size={24} />
                           </div>
                           <div>
-                            <p className="font-bold text-white text-sm">Pembayaran Non-Tunai</p>
-                            <p className="text-xs mt-1">Pastikan pelanggan sudah melakukan scan QRIS atau transfer sebelum menyelesaikan pesanan.</p>
+                            <p className="font-bold text-white text-sm">
+                              Pembayaran Non-Tunai
+                            </p>
+                            <p className="text-xs mt-1">
+                              Pastikan pelanggan sudah melakukan scan QRIS atau
+                              transfer sebelum menyelesaikan pesanan.
+                            </p>
                           </div>
                         </div>
                       )}
@@ -1498,13 +1560,17 @@ export default function CashierDashboard() {
                 <div className="p-8 md:p-12 text-center bg-zinc-950 flex flex-col items-center">
                   <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 relative">
                     <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping opacity-50" />
-                    <CheckCircle2 size={48} className="text-emerald-400 relative z-10" />
+                    <CheckCircle2
+                      size={48}
+                      className="text-emerald-400 relative z-10"
+                    />
                   </div>
                   <h2 className="text-3xl font-black text-white mb-2">
                     Pembayaran Berhasil!
                   </h2>
                   <p className="text-gray-400 mb-8 max-w-sm text-sm leading-relaxed">
-                    Pesanan #{selectedOrder.id} atas nama {selectedOrder.nama_pelanggan} telah selesai.
+                    Pesanan #{selectedOrder.id} atas nama{" "}
+                    {selectedOrder.nama_pelanggan} telah selesai.
                   </p>
 
                   <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-5 mb-8 w-full max-w-sm text-left">
