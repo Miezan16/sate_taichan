@@ -610,7 +610,7 @@ export default function CustomerOrderPage() {
         </div>
 
         {/* BOTTOM SECTION - Diberi padding bawah agar tidak menyatu dengan navbar mobile */}
-        <div className="flex flex-col md:flex-row justify-between items-end z-20 pb-28 md:pb-12 gap-6 relative">
+        <div className="flex flex-row justify-between items-start z-20 pb-28 md:pb-12 gap-6 relative">
           {/* Bottom Left: Harga & Deskripsi */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
