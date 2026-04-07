@@ -788,7 +788,13 @@ export default function CashierDashboard() {
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+  <img 
+    src="sadjodo.png" 
+    alt="" 
+    className="w-full h-auto object-cover" 
+  />
+</div>
         <header className="h-20 px-8 flex items-center justify-between border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl z-10 sticky top-0">
           <div>
             <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
