@@ -42,6 +42,13 @@ export async function POST(request: NextRequest) {
       const menuIds = items.map((item: any) => Number(item.menu_id));
       const menus = await tx.menu.findMany({
         where: { id: { in: menuIds }, deleted_at: null, tersedia: true },
+        // ✅ FIX FINAL VERCEL TIMEOUT: Hanya ambil data teks yang dibutuhkan, JANGAN tarik gambar (Base64) dari database!
+        select: {
+          id: true,
+          nama: true,
+          harga: true,
+          stok: true
+        }
       });
 
       // 2. Validasi stok mencukupi untuk setiap item
