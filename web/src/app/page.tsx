@@ -611,12 +611,12 @@ export default function CustomerOrderPage() {
 
         {/* BOTTOM SECTION - Diberi padding bawah agar tidak menyatu dengan navbar mobile */}
         <div className="flex flex-row justify-between items-start z-20 pb-28 md:pb-12 gap-6 relative">
-          {/* Bottom Left: Harga & Deskripsi */}
+         {/* Bottom Left: Harga & Deskripsi */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5, duration: 0.8 }}
-            className="self-start md:self-end"
+            className="self-start md:self-end mb-24 md:mb-0" 
           >
             <div className="text-3xl md:text-5xl font-black text-white tracking-wider drop-shadow-lg mb-2">
               Rp {SLIDER_DATA[currentSlide].price.toLocaleString("id-ID")}
