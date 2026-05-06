@@ -11,15 +11,15 @@ export async function POST(req: Request) {
 
     // 1. Ambil semua menu aktif dari Database
     const menusFromDb = await prisma.menu.findMany({
-      where: { deleted_at: null }, 
+      where: { deleted_at: null },
     });
 
     // 2. Cari Menu Terlaris secara berurutan
     const topSelling = await prisma.transaksiItem.groupBy({
       by: ["menu_id"],
       _sum: { jumlah: true },
-      orderBy: { _sum: { jumlah: "desc" } }, 
-      take: 4, 
+      orderBy: { _sum: { jumlah: "desc" } },
+      take: 4,
     });
 
     // 3. Siapkan String Data untuk AI
@@ -31,7 +31,9 @@ export async function POST(req: Request) {
     const topMenuText = topSelling
       .map((t, index) => {
         const menu = menusFromDb.find((m) => m.id === t.menu_id);
-        return menu ? `${index + 1}. ${menu.nama} (Terjual: ${t._sum.jumlah} porsi) - Gunakan Kode: ID-${menu.id}` : null;
+        return menu
+          ? `${index + 1}. ${menu.nama} (Terjual: ${t._sum.jumlah} porsi) - Gunakan Kode: ID-${menu.id}`
+          : null;
       })
       .filter(Boolean)
       .join("\n");
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
       model: "gemini-2.5-flash",
       generationConfig: {
         responseMimeType: "application/json",
-        temperature: 0.1, 
+        temperature: 0.1,
         topP: 0.9,
       },
       systemInstruction: `Kamu adalah "Sadjodo AI", asisten virtual eksklusif, cerdas, dan profesional untuk restoran premium "Sate Taichan Sadjodo".
@@ -52,7 +54,7 @@ Owner Sate Sadjodo sekaligus pembuat/developer website ini adalah:
 1. Dzikri Miezan (Instagram: @zyxxmzn, No Telepon: 083820010295)
 2. Andhika Pratama
 
-Jika ada yang bertanya tentang "Siapa pemiliknya?", "Siapa yang buat website ini?", atau "Siapa di balik Sadjodo?", berikan informasi kedua nama di atas dengan bangga dan sopan.
+Jika ada yang bertanya tentang "Siapa pemiliknya?", "Siapa yang buat website ini?", atau "Siapa di balik Sadjodo?", "Owner & Develover Website?", berikan informasi kedua nama di atas dengan bangga dan sopan.
 
 =========================================
 ATURAN BAHASA & MULTI-LANGUAGE
@@ -121,7 +123,9 @@ HANYA JAWAB DENGAN JSON BERIKUT:
           return {
             nama: menu.nama,
             harga: menu.harga.toString(),
-            image: menu.image || "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&q=80", 
+            image:
+              menu.image ||
+              "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&q=80",
             deskripsi: menu.deskripsi || "Menu spesial pilihan Sadjodo.",
           };
         }
@@ -131,14 +135,19 @@ HANYA JAWAB DENGAN JSON BERIKUT:
 
     return NextResponse.json({
       jawaban: parsedData.jawaban,
-      menus: responseMenus, 
+      menus: responseMenus,
       catatan: parsedData.catatan || "-",
     });
   } catch (error) {
     console.error("API Route Error:", error);
     return NextResponse.json(
-      { jawaban: "Duh Kak, koneksi Sadjodo AI lagi terganggu. Mohon coba lagi ya!", menus: [], catatan: "Error" },
-      { status: 500 }
+      {
+        jawaban:
+          "Duh Kak, koneksi Sadjodo AI lagi terganggu. Mohon coba lagi ya!",
+        menus: [],
+        catatan: "Error",
+      },
+      { status: 500 },
     );
   }
 }
