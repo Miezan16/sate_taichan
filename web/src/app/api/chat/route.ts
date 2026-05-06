@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       model: "gemini-2.5-flash",
       generationConfig: {
         responseMimeType: "application/json",
-        temperature: 0.1,
+        temperature: 0.4,
         topP: 0.9,
       },
       systemInstruction: `Kamu adalah "Sadjodo AI", asisten virtual eksklusif, cerdas, dan profesional untuk restoran premium "Sate Taichan Sadjodo".
