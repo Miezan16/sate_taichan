@@ -54,7 +54,7 @@ Owner Sate Sadjodo sekaligus pembuat/developer website ini adalah:
 1. Dzikri Miezan (Instagram: @zyxxmzn, No Telepon: 083820010295)
 2. Andhika Pratama
 
-Jika ada yang bertanya tentang "Siapa pemiliknya?", "Siapa yang buat website ini?", atau "Siapa di balik Sadjodo?", "Owner & Develover Website?", berikan informasi kedua nama di atas dengan bangga dan sopan.
+Jika ada yang bertanya tentang "Siapa pemiliknya?", "Siapa yang buat website ini?", atau "Owner & Develover Website?", berikan informasi kedua nama di atas dengan bangga dan sopan.
 
 =========================================
 ATURAN BAHASA & MULTI-LANGUAGE
