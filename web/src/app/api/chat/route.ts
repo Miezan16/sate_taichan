@@ -1,79 +1,115 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { PrismaClient } from "@prisma/client";
 
+const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
   try {
     const { message } = await req.json();
 
+    // 1. Ambil semua menu aktif dari Database
+    const menusFromDb = await prisma.menu.findMany({
+      where: { deleted_at: null }, // Sesuaikan dengan schema jika ada field 'tersedia'
+    });
+
+    // 2. Cari Menu Terlaris secara berurutan (Paling banyak dibeli -> Terendah)
+    const topSelling = await prisma.transaksiItem.groupBy({
+      by: ["menu_id"],
+      _sum: { jumlah: true },
+      orderBy: { _sum: { jumlah: "desc" } }, // Diurutkan dari yang paling banyak dibeli
+      take: 4, // Ambil Top 4
+    });
+
+    // 3. Siapkan String Data untuk AI
+    let catalogText = "";
+    menusFromDb.forEach((m) => {
+      catalogText += `ID-${m.id} : ${m.nama} (Rp ${m.harga})\n`;
+    });
+
+    const topMenuText = topSelling
+      .map((t, index) => {
+        const menu = menusFromDb.find((m) => m.id === t.menu_id);
+        return menu ? `${index + 1}. ${menu.nama} (Terjual: ${t._sum.jumlah} porsi) - Gunakan Kode: ID-${menu.id}` : null;
+      })
+      .filter(Boolean)
+      .join("\n");
+
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash", 
+      model: "gemini-2.5-flash",
       generationConfig: {
-        responseMimeType: "application/json", 
-        temperature: 0.3, 
+        responseMimeType: "application/json",
+        temperature: 0.1, 
+        topP: 0.9,
       },
-      systemInstruction: `Kamu adalah "Sadjodo AI", asisten virtual elit untuk "Sate Sadjodo".
-Gaya bahasamu: Profesional, ramah, panggil "Kak", dan gunakan emoji.
+      systemInstruction: `Kamu adalah "Sadjodo AI", asisten virtual eksklusif, cerdas, dan profesional untuk restoran premium "Sate Taichan Sadjodo".
 
 =========================================
-KNOWLEDGE BASE (WAJIB UNTUK MEMANGGIL KARTU MENU)
+ATURAN BAHASA & GAYA KOMUNIKASI 
 =========================================
-Gunakan ID berikut dalam array "menus" agar foto & harga muncul di chat:
-- Sate: Sate Sapi (ID-1), Sate Bumbu Kacang (ID-2), Sate Taichan Kulit (ID-3), Sate Taichan+Lontong (ID-4), Sate Paket Komplit (ID-12), Sate Taichan Premium (ID-13), BBQ Ribs Special (ID-16).
-- Karbo: Lontong (ID-5), Sate Taichan + Mie Goreng (ID-6), Nasi Daun Jeruk (ID-7), Rich Harvest Ramen (ID-11).
-- Camilan: Kulit Crispy (ID-8), Gyoza Chilli Oil (ID-9), Seblak Ceker (ID-10), Tahu Cabai Garam (ID-14).
-- Minuman: Chilled Craft Blends (ID-15), Lemon Fresh Slice (ID-17), Es Teh (ID-18), Es Jeruk Peras (ID-19).
+1. BAHASA DEFAULT: Gunakan Bahasa Indonesia yang asik, ramah, elegan dan menggugah selera. Panggil pengguna dengan "Kak".
+2. JAWABAN NATURAL: Jawab langsung ke intinya. Hindari kalimat yang terdengar seperti robot atau sistem.
 
 =========================================
-LOGIKA OPERASIONAL & CABANG
+KATALOG MENU KAMI
 =========================================
-1. LOKASI: 
-   - Cabang Baleendah: Jl. Bojong Koneng, Rancamanyar, Baleendah.
-   - Cabang Soreang: Jl. Raya Gading Tutuka, Cingcin, Soreang (XGHR+3Q7).
-2. JAM BUKA: Setiap hari pukul 16.00 - 23.00 WIB.
-3. CARA PESAN: Klik tombol (+) pada menu, cek keranjang, lalu bayar di kasir (QRIS/Cash).
+${catalogText}
 
 =========================================
-LOGIKA MENJAWAB (KOMPLEKS)
+MENU TERLARIS (DIURUTKAN DARI TERBANYAK)
 =========================================
-- Jika user tanya "Menu": Masukkan SEMUA ID (ID-1 sampai ID-19) ke array "menus".
-- Jika user tanya "Rekomendasi/Best Seller": Masukkan ["ID-12", "ID-16", "ID-15"].
-- Jika user tanya "Pedas": Masukkan ["ID-10", "ID-14", "ID-9"].
-- Jika user tanya "Lokasi/Jam Buka": Jelaskan detail cabang & jam, menus biarkan kosong [].
-- Jika user Komplain: Minta maaf & tawarkan ganti baru lewat staf. menus kosong [].
-- Jika tanya di luar makanan (OOT): Jawab sopan lalu arahkan kembali ke menu sate.
+${topMenuText || "Belum ada data penjualan."}
 
 =========================================
-ATURAN FORMAT JSON (SANGAT KETAT)
+LOGIKA MENJAWAB & FORMAT (SANGAT PENTING)
 =========================================
-1. JANGAN sebutkan "ID-..." di dalam teks "jawaban".
-2. Teks "jawaban" harus menggugah selera.
-3. Berikan array "menus" berisi ID yang relevan agar Frontend bisa menampilkan foto.
+1. JIKA MENAMPILKAN MENU: Ceritakan menu tersebut dengan bahasa yang menarik di dalam teks "jawaban". 
+2. ATURAN ID MENU (RAHASIA): Untuk memunculkan gambar menu di layar pengguna, kamu WAJIB memasukkan kode "ID-..." menu tersebut ke dalam array "menus" pada JSON.
+3. LARANGAN KERAS: JANGAN PERNAH menuliskan kode "ID-..." atau hal teknis lainnya di dalam teks "jawaban"! Pengguna tidak boleh melihat kode tersebut. Cukup sebutkan nama menunya saja.
 
-HANYA JAWAB DENGAN JSON:
+HANYA JAWAB DENGAN JSON BERIKUT:
 {
-  "jawaban": "isi jawaban kamu...",
+  "jawaban": "Teks jawaban natural kamu tanpa menyebutkan ID menu...",
   "menus": ["ID-1", "ID-2"], 
-  "catatan": "log aktivitas"
+  "catatan": "Tulis log aktivitas singkat"
 }
-`
+`,
     });
 
     const result = await model.generateContent(message);
     const responseText = result.response.text();
 
-    const cleanJsonString = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
-    const parsedData = JSON.parse(cleanJsonString);
+    let cleanJSON = responseText.replace(/```json|```/g, "").trim();
+    let parsedData = JSON.parse(cleanJSON);
+
+    // 4. Mapping ID kembali ke Data Menu utuh
+    const responseMenus = (parsedData.menus || [])
+      .map((aiId: string) => {
+        const dbId = parseInt(aiId.replace("ID-", ""));
+        const menu = menusFromDb.find((m) => m.id === dbId);
+        if (menu) {
+          return {
+            nama: menu.nama,
+            harga: menu.harga.toString(),
+            image: menu.image || "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&q=80", 
+            deskripsi: menu.deskripsi || "Menu spesial pilihan Sadjodo.",
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
 
     return NextResponse.json({
-      jawaban: parsedData.jawaban || "Halo Kak! Ada yang bisa Sadjodo AI bantu?",
-      menus: Array.isArray(parsedData.menus) ? parsedData.menus : [],
-      catatan: parsedData.catatan || "Respon AI"
+      jawaban: parsedData.jawaban,
+      menus: responseMenus, 
+      catatan: parsedData.catatan || "-",
     });
-
   } catch (error) {
-    console.error("Error:", error);
-    return NextResponse.json({ jawaban: "Aduh Kak, sistem lagi loading sebentar. Coba lagi ya!", menus: [] }, { status: 500 });
+    console.error("API Route Error:", error);
+    return NextResponse.json(
+      { jawaban: "Duh Kak, koneksi Sadjodo AI lagi terganggu sedikit. Mohon coba lagi ya!", menus: [], catatan: "Error" },
+      { status: 500 }
+    );
   }
 }
