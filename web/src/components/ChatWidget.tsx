@@ -19,7 +19,7 @@ interface Message {
   catatan?: string;
 }
 
-const SUGGESTIONS = ["Menu Terlaris?", "Daftar Menu?", "Jam Buka?", "Lokasi Cabang?"];
+const SUGGESTIONS = ["Menu Terlaris?", "Daftar Menu?", "Jam Buka?", "Lokasi Cabang?", "Owner & Develover Website?"];
 
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
